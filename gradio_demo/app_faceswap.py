@@ -96,6 +96,7 @@ def main(
 
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
+    print("\nLoading Instant-Id IP-Adapter ...")
     pipe.load_ip_adapter_instantid(face_adapter_path)
 
     # load and disable LCM
@@ -473,7 +474,7 @@ def main(
         
         gr.Markdown(article)
 
-    demo.launch(share=True)
+    demo.launch()
 
 
 if __name__ == "__main__":

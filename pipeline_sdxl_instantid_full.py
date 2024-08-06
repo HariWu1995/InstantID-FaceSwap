@@ -917,6 +917,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                 guess_mode=guess_mode,
             )
             height, width = image.shape[-2:]
+
         elif isinstance(controlnet, MultiControlNetModel):
             images = []
 
@@ -937,6 +938,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
 
             image = images
             height, width = image[0].shape[-2:]
+
         else:
             assert False
 
@@ -955,6 +957,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                 control_mask_wight_image_list.append(scale_mask_weight_image_tensor)
             region_mask = torch.from_numpy(np.array(control_mask)[:, :, 0]).to(self.unet.device, dtype=self.unet.dtype) / 255.
             region_control.prompt_image_conditioning = [dict(region_mask=region_mask)]
+        
         else:
             control_mask_wight_image_list = None
             region_control.prompt_image_conditioning = [dict(region_mask=None)]
@@ -1089,14 +1092,15 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                             controlnet_prompt_embeds = prompt_image_emb
                         else:
                             controlnet_prompt_embeds = prompt_embeds
-                        down_block_res_samples, mid_block_res_sample = controlnet(control_model_input,
-                                                                                  t,
-                                                                                  encoder_hidden_states=controlnet_prompt_embeds,
-                                                                                  controlnet_cond=image[control_index],
-                                                                                  conditioning_scale=cond_scale[control_index],
-                                                                                  guess_mode=guess_mode,
-                                                                                  added_cond_kwargs=controlnet_added_cond_kwargs,
-                                                                                  return_dict=False)
+                        down_block_res_samples, \
+                         mid_block_res_sample = controlnet(control_model_input,
+                                                           t,
+                                                           encoder_hidden_states=controlnet_prompt_embeds,
+                                                           controlnet_cond=image[control_index],
+                                                           conditioning_scale=cond_scale[control_index],
+                                                           guess_mode=guess_mode,
+                                                           added_cond_kwargs=controlnet_added_cond_kwargs,
+                                                           return_dict=False)
 
                         # controlnet mask
                         if control_index == 0 and control_mask_wight_image_list is not None:
@@ -1113,16 +1117,17 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                     down_block_res_samples = [torch.stack(down_block_res_samples).sum(dim=0) for down_block_res_samples in
                                               zip(*down_block_res_samples_list)]
                 else:
-                    down_block_res_samples, mid_block_res_sample = self.controlnet(
-                        control_model_input,
-                        t,
-                        encoder_hidden_states=prompt_image_emb,
-                        controlnet_cond=image,
-                        conditioning_scale=cond_scale,
-                        guess_mode=guess_mode,
-                        added_cond_kwargs=controlnet_added_cond_kwargs,
-                        return_dict=False,
-                    )
+                    down_block_res_samples, \
+                     mid_block_res_sample = self.controlnet(
+                                                control_model_input,
+                                                t,
+                                                encoder_hidden_states=prompt_image_emb,
+                                                controlnet_cond=image,
+                                                conditioning_scale=cond_scale,
+                                                guess_mode=guess_mode,
+                                                added_cond_kwargs=controlnet_added_cond_kwargs,
+                                                return_dict=False,
+                                            )
 
                     # controlnet mask
                     if control_mask_wight_image_list is not None:
