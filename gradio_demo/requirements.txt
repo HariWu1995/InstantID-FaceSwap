@@ -15,4 +15,3 @@ insightface
 gradio
 controlnet_aux
 gdown
-peft

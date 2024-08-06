@@ -103,6 +103,10 @@ def main(
     pipe.load_lora_weights("latent-consistency/lcm-lora-sdxl")
     pipe.disable_lora()
 
+    # save VRAM
+    pipe.enable_model_cpu_offload()
+    pipe.enable_vae_tiling()
+
     def toggle_lcm_ui(value):
         if value:
             return (
