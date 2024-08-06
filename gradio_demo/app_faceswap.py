@@ -49,12 +49,15 @@ def main(
     enable_lcm_arg: bool = False
 ):
     # Load face encoder
+    print("\nLoading Face Encoder ...")
     app = FaceAnalysis(name='antelopev2', root=face_encoder_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
 
     # Load pipeline
+    print("\nLoading ControlNet ...")
     controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
 
+    print("\nLoading SD-XL Instant-Id Pipeline ...")
     if pretrained_model.endswith(".ckpt") \
     or pretrained_model.endswith(".safetensors"):
 
@@ -96,6 +99,7 @@ def main(
     pipe.load_ip_adapter_instantid(face_adapter_path)
 
     # load and disable LCM
+    print("\nLoading LoRA ...")
     pipe.load_lora_weights("latent-consistency/lcm-lora-sdxl")
     pipe.disable_lora()
 
@@ -255,6 +259,7 @@ def main(
         height, width, _ = face_image_cv2.shape
         
         # Extract face features
+        print("\nExtracting targeted face features ...")
         face_info = app.get(face_image_cv2)
         
         if len(face_info) == 0:
@@ -269,6 +274,7 @@ def main(
             pose_image = resize_img(pose_image)
             pose_image_cv2 = convert_from_image_to_cv2(pose_image)
             
+            print("\nExtracting referenced face features ...")
             face_info = app.get(pose_image_cv2)
             
             if len(face_info) == 0:
@@ -280,6 +286,7 @@ def main(
             width, height = face_kps.size
 
         if enhance_face_region:
+            print("\nEnhancing face ...")
             control_mask = np.zeros([height, width, 3])
             x1, y1, x2, y2 = face_info["bbox"]
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
@@ -290,8 +297,8 @@ def main(
                         
         generator = torch.Generator(device=device).manual_seed(seed)
         
-        print("Start inference...")
-        print(f"[Debug] Prompt: {prompt}, \n[Debug] Neg Prompt: {negative_prompt}")
+        print("\nInferencing ...")
+        print(f"\t[Debug] Prompt: {prompt}, \n\t[Debug] Neg Prompt: {negative_prompt}")
         
         pipe.set_ip_adapter_scale(adapter_strength_ratio)
         images = pipe(
