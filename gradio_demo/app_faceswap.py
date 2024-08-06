@@ -45,7 +45,7 @@ def main(
     face_encoder_dir: str = './',
     face_adapter_path: str = './checkpoints/ip-adapter.bin',
     controlnet_path: str = './checkpoints/ControlNetModel',
-    pretrained_model: str = "wangqixun/YamerMIX_v8", 
+    sdxl_checkpoint: str = "wangqixun/YamerMIX_v8", 
     enable_lcm_arg: bool = False
 ):
     # Load face encoder
@@ -58,8 +58,8 @@ def main(
     controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
 
     print("\nLoading SD-XL Instant-Id Pipeline ...")
-    if pretrained_model.endswith(".ckpt") \
-    or pretrained_model.endswith(".safetensors"):
+    if sdxl_checkpoint.endswith(".ckpt") \
+    or sdxl_checkpoint.endswith(".safetensors"):
 
         scheduler_kwargs = hf_hub_download(
             repo_id="wangqixun/YamerMIX_v8",
@@ -69,7 +69,7 @@ def main(
         scheduler = diffusers.EulerDiscreteScheduler.from_config(scheduler_kwargs)
 
         (tokenizers, text_encoders, unet, _, vae) = load_models_xl(
-            pretrained_model_name_or_path=pretrained_model,
+            pretrained_model_name_or_path=sdxl_checkpoint,
             scheduler_name=None,
             weight_dtype=dtype,
         )
@@ -87,7 +87,7 @@ def main(
 
     else:
         pipe = SdXlInstantIdPipeline.from_pretrained(
-            pretrained_model,
+            sdxl_checkpoint,
             controlnet=controlnet,
             torch_dtype=dtype,
             safety_checker=None,
@@ -469,7 +469,7 @@ def main(
         
         gr.Markdown(article)
 
-    demo.launch()
+    demo.launch(share=True)
 
 
 if __name__ == "__main__":
@@ -477,7 +477,7 @@ if __name__ == "__main__":
     # checkpoint_dir = 'D:/stable-diffusion/IP-Adapter-FaceID'
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrained_model", type=str, default='wangqixun/YamerMIX_v8')
+    parser.add_argument("--sdxl_checkpoint", type=str, default='wangqixun/YamerMIX_v8')
     parser.add_argument("--face_encoder_dir", type=str, default='./')
     parser.add_argument("--face_adapter_path", type=str, default='./checkpoints/ip-adapter.bin')
     parser.add_argument("--controlnet_path", type=str, default='./checkpoints/ControlNetModel')
@@ -489,7 +489,7 @@ if __name__ == "__main__":
         args.face_encoder_dir, 
         args.face_adapter_path, 
         args.controlnet_path, 
-        args.pretrained_model, 
+        args.sdxl_checkpoint, 
         args.enable_LCM,
     )
     
