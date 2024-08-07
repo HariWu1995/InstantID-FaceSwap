@@ -1071,9 +1071,10 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         is_torch_higher_equal_2_1 = is_torch_version(">=", "2.1")
                 
         with self.progress_bar(total=num_inference_steps) as progress_bar:
+
             for i, t in enumerate(timesteps):
                 # Relevant thread:
-                # https://dev-discuss.pytorch.org/t/cudagraphs-in-pytorch-2-0/1428
+                #   https://dev-discuss.pytorch.org/t/cudagraphs-in-pytorch-2-0/1428
                 if (is_unet_compiled and is_controlnet_compiled) and is_torch_higher_equal_2_1:
                     torch._inductor.cudagraph_mark_step_begin()
                 # expand the latents if we are doing classifier free guidance
@@ -1227,6 +1228,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             else:
                 latents = latents / self.vae.config.scaling_factor
 
+            print('\n\tDecoding ...')
             image = self.vae.decode(latents, return_dict=False)[0]
 
             # cast back to fp16 if needed
@@ -1240,6 +1242,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             if self.watermark is not None:
                 image = self.watermark.apply_watermark(image)
 
+            print('\n\tPostprocessing ...')
             image = self.image_processor.postprocess(image, output_type=output_type)
 
         # Offload all models
