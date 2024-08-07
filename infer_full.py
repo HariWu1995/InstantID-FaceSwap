@@ -7,10 +7,11 @@ from diffusers.utils import load_image
 from diffusers.models import ControlNetModel
 from diffusers.pipelines.controlnet.multicontrolnet import MultiControlNetModel
 
-from insightface.app import FaceAnalysis
-from pipeline_stable_diffusion_xl_instantid_full import StableDiffusionXLInstantIDPipeline, draw_kps
-
 from controlnet_aux import MidasDetector
+from insightface.app import FaceAnalysis
+
+from pipeline.sdxl_instantid_full import StableDiffusionXLInstantIDPipeline, draw_kps
+
 
 def convert_from_image_to_cv2(img: Image) -> np.ndarray:
     return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)

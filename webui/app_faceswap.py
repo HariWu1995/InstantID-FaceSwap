@@ -26,7 +26,7 @@ from insightface.app import FaceAnalysis
 
 from model_util import load_models_xl, get_torch_device, torch_gc
 from style_template import styles
-from pipeline_sdxl_instantid_full import StableDiffusionXLInstantIDPipeline as SdXlInstantIdPipeline
+from pipeline.sdxl_instantid_full import StableDiffusionXLInstantIDPipeline as SdXlInstantIdPipeline
 
 import gradio as gr
 
@@ -34,7 +34,8 @@ import gradio as gr
 # global variable
 MAX_SEED = np.iinfo(np.int32).max
 
-device = get_torch_device()
+# device = get_torch_device()
+device = 'cpu'
 dtype = torch.float16 if str(device).__contains__("cuda") else torch.float32
 
 STYLE_NAMES = list(styles.keys())
@@ -45,68 +46,10 @@ def main(
     face_encoder_dir: str = './',
     face_adapter_path: str = './checkpoints/ip-adapter.bin',
     controlnet_path: str = './checkpoints/ControlNetModel',
-    sdxl_checkpoint: str = "wangqixun/YamerMIX_v8", 
-    enable_lcm_arg: bool = False
+    sdxl_ckpt_path: str = "wangqixun/YamerMIX_v8", 
+    lora_ckpt_path: str = "latent-consistency/lcm-lora-sdxl",
+    enable_lcm_lora: bool = False
 ):
-    # Load face encoder
-    print("\nLoading Face Encoder ...")
-    app = FaceAnalysis(name='antelopev2', root=face_encoder_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-    app.prepare(ctx_id=0, det_size=(640, 640))
-
-    # Load pipeline
-    print("\nLoading ControlNet ...")
-    controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
-
-    print("\nLoading SD-XL Instant-Id Pipeline ...")
-    if sdxl_checkpoint.endswith(".ckpt") \
-    or sdxl_checkpoint.endswith(".safetensors"):
-
-        scheduler_kwargs = hf_hub_download(
-            repo_id="wangqixun/YamerMIX_v8",
-            subfolder="scheduler",
-            filename="scheduler_config.json",
-        )
-        scheduler = diffusers.EulerDiscreteScheduler.from_config(scheduler_kwargs)
-
-        (tokenizers, text_encoders, unet, _, vae) = load_models_xl(
-            pretrained_model_name_or_path=sdxl_checkpoint,
-            scheduler_name=None,
-            weight_dtype=dtype,
-        )
-
-        pipe = SdXlInstantIdPipeline(
-            vae=vae,
-            unet=unet,
-            text_encoder=text_encoders[0],
-            text_encoder_2=text_encoders[1],
-            tokenizer=tokenizers[0],
-            tokenizer_2=tokenizers[1],
-            scheduler=scheduler,
-            controlnet=controlnet,
-        ).to(device)
-
-    else:
-        pipe = SdXlInstantIdPipeline.from_pretrained(
-            sdxl_checkpoint,
-            controlnet=controlnet,
-            torch_dtype=dtype,
-            safety_checker=None,
-            feature_extractor=None,
-        ).to(device)
-
-        pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-
-    print("\nLoading Instant-Id IP-Adapter ...")
-    pipe.load_ip_adapter_instantid(face_adapter_path)
-
-    # load and disable LCM
-    print("\nLoading LoRA ...")
-    pipe.load_lora_weights("latent-consistency/lcm-lora-sdxl")
-    pipe.disable_lora()
-
-    # save VRAM
-    pipe.enable_model_cpu_offload()
-    pipe.enable_vae_tiling()
 
     def toggle_lcm_ui(value):
         if value:
@@ -164,6 +107,7 @@ def main(
         return case
 
     def run_for_examples(face_file, prompt, style, negative_prompt):
+        print('\nGenerating examples ...')
         return generate_image(face_file, None, prompt, negative_prompt, style, 30, 0.8, 0.8, 5, 42, False, True)
 
     def convert_from_cv2_to_image(img: np.ndarray) -> Image:
@@ -238,30 +182,24 @@ def main(
                 adapter_strength_ratio, 
             guidance_scale, 
                       seed, 
-                enable_LCM, 
+            enable_lcm_lora, 
             enhance_face_region, 
-            progress=gr.Progress(track_tqdm=True)
+            # progress=gr.Progress(track_tqdm=True)
         ):
-        if enable_LCM:
-            pipe.enable_lora()
-            pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
-        else:
-            pipe.disable_lora()
-            pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-    
+
         if face_image_path is None:
             raise gr.Error(f"Cannot find any input face image! Please upload the face image")
         
-        if prompt is None:
-            prompt = "a person"
-        
-        # apply the style template
-        prompt, negative_prompt = apply_style(style_name, prompt, negative_prompt)
-        
+        # Preprocess face
         face_image = load_image(face_image_path)
         face_image = resize_img(face_image)
         face_image_cv2 = convert_from_image_to_cv2(face_image)
         height, width, _ = face_image_cv2.shape
+
+        # Load face encoder
+        print("\nLoading Face Encoder ...")
+        app = FaceAnalysis(name='antelopev2', root=face_encoder_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        app.prepare(ctx_id=0, det_size=(640, 640))
         
         # Extract face features
         print("\nExtracting targeted face features ...")
@@ -290,6 +228,9 @@ def main(
             
             width, height = face_kps.size
 
+        # Remove face detector to save memory
+        del app
+
         if enhance_face_region:
             print("\nEnhancing face ...")
             control_mask = np.zeros([height, width, 3])
@@ -301,11 +242,80 @@ def main(
             control_mask = None
                         
         generator = torch.Generator(device=device).manual_seed(seed)
+
+        # Load pipeline
+        print("\nLoading ControlNet ...")
+        controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
+
+        print("\nLoading SD-XL Instant-Id Pipeline ...")
+        if sdxl_ckpt_path.endswith(".ckpt") \
+        or sdxl_ckpt_path.endswith(".safetensors"):
+
+            scheduler_kwargs = hf_hub_download(
+                repo_id="wangqixun/YamerMIX_v8",
+                subfolder="scheduler",
+                filename="scheduler_config.json",
+            )
+            scheduler = diffusers.EulerDiscreteScheduler.from_config(scheduler_kwargs)
+
+            (tokenizers, text_encoders, unet, _, vae) = load_models_xl(
+                pretrained_model_name_or_path=sdxl_ckpt_path,
+                scheduler_name=None,
+                weight_dtype=dtype,
+            )
+
+            pipe = SdXlInstantIdPipeline(
+                vae=vae,
+                unet=unet,
+                text_encoder=text_encoders[0],
+                text_encoder_2=text_encoders[1],
+                tokenizer=tokenizers[0],
+                tokenizer_2=tokenizers[1],
+                scheduler=scheduler,
+                controlnet=controlnet,
+            ).to(device)
+
+        else:
+            pipe = SdXlInstantIdPipeline.from_pretrained(
+                sdxl_ckpt_path,
+                controlnet=controlnet,
+                torch_dtype=dtype,
+                safety_checker=None,
+                feature_extractor=None,
+            ).to(device)
+
+            pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+
+        print("\nLoading Instant-Id IP-Adapter ...")
+        pipe.load_ip_adapter_instantid(face_adapter_path)
+
+        # save VRAM
+        print("\nEnabling CPU Offload ...")
+        pipe.enable_model_cpu_offload()
+        pipe.enable_vae_tiling()
+
+        # load and disable LCM LoRA
+        if enable_lcm_lora:
+            print("\nEnabling LoRA ...")
+            pipe.load_lora_weights(lora_ckpt_path)
+            pipe.enable_lora()
+            pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+        else:
+            print("\nDisabling LoRA ...")
+            pipe.disable_lora()
+            pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+    
+        pipe.set_ip_adapter_scale(adapter_strength_ratio)
         
+        if prompt is None:
+            prompt = "a person"
+        
+        # apply the style template
+        prompt, negative_prompt = apply_style(style_name, prompt, negative_prompt)
+
         print("\nInferencing ...")
         print(f"\t[Debug] Prompt: {prompt}, \n\t[Debug] Neg Prompt: {negative_prompt}")
         
-        pipe.set_ip_adapter_scale(adapter_strength_ratio)
         images = pipe(
                      prompt = prompt,
             negative_prompt = negative_prompt,
@@ -390,8 +400,8 @@ def main(
                 
                 submit = gr.Button("Submit", variant="primary")
                 
-                enable_LCM = gr.Checkbox(
-                    label="Enable Fast Inference with LCM", value=enable_lcm_arg,
+                enable_lcm_lora = gr.Checkbox(
+                    label="Enable Fast Inference with LCM", value=enable_lcm_lora,
                     info="LCM speeds up the inference step, the trade-off is the quality of the generated image. It performs better with portrait face images rather than distant faces",
                 )
                 style = gr.Dropdown(label="Style template", choices=STYLE_NAMES, value=STYLE_DEFAULT)
@@ -423,14 +433,14 @@ def main(
                         minimum=20,
                         maximum=100,
                         step=1,
-                        value=5 if enable_lcm_arg else 30,
+                        value=5 if enable_lcm_lora else 30,
                     )
                     guidance_scale = gr.Slider(
                         label="Guidance scale",
                         minimum=0.1,
                         maximum=10.0,
                         step=0.1,
-                        value=0 if enable_lcm_arg else 5,
+                        value=0 if enable_lcm_lora else 5,
                     )
                     seed = gr.Slider(
                         label="Seed",
@@ -457,11 +467,11 @@ def main(
                 api_name=False,
             ).then(
                 fn=generate_image,
-                inputs=[face_file, pose_file, prompt, negative_prompt, style, num_steps, identitynet_strength_ratio, adapter_strength_ratio, guidance_scale, seed, enable_LCM, enhance_face_region],
+                inputs=[face_file, pose_file, prompt, negative_prompt, style, num_steps, identitynet_strength_ratio, adapter_strength_ratio, guidance_scale, seed, enable_lcm_lora, enhance_face_region],
                 outputs=[gallery, usage_tips]
             )
         
-            enable_LCM.input(fn=toggle_lcm_ui, inputs=[enable_LCM], outputs=[num_steps, guidance_scale], queue=False)
+            enable_lcm_lora.input(fn=toggle_lcm_ui, inputs=[enable_lcm_lora], outputs=[num_steps, guidance_scale], queue=False)
 
         gr.Examples(
             examples=get_example(),
@@ -479,22 +489,25 @@ def main(
 
 if __name__ == "__main__":
 
-    # checkpoint_dir = 'D:/stable-diffusion/IP-Adapter-FaceID'
+    working_dir = 'C:/Users/Mr. RIAH/Documents/GenAI/InstantID-FaceSwap'
+    checkpoint_dir = 'D:/stable-diffusion/Instant-ID/InstantID'
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sdxl_checkpoint", type=str, default='wangqixun/YamerMIX_v8')
-    parser.add_argument("--face_encoder_dir", type=str, default='./')
-    parser.add_argument("--face_adapter_path", type=str, default='./checkpoints/ip-adapter.bin')
-    parser.add_argument("--controlnet_path", type=str, default='./checkpoints/ControlNetModel')
-    parser.add_argument("--enable_LCM", type=bool, default=os.environ.get("ENABLE_LCM", False))
+    parser.add_argument("--sdxl_ckpt_path", type=str, default=working_dir+'/models/YamerMIX_v8')
+    parser.add_argument("--face_encoder_dir", type=str, default=working_dir)
+    parser.add_argument("--face_adapter_path", type=str, default=checkpoint_dir+'/ip-adapter.bin')
+    parser.add_argument("--controlnet_path", type=str, default=checkpoint_dir+'/ControlNetModel')
+    parser.add_argument("--lora_ckpt_path", type=str, default=checkpoint_dir+'/LCM-LoRA-SDXL.safetensors')
+    parser.add_argument("--enable_LCM_LoRA", type=bool, default=os.environ.get("ENABLE_LCM_LORA", False))
 
     args, _ = parser.parse_known_args()
 
     main(
-        args.face_encoder_dir, 
-        args.face_adapter_path, 
-        args.controlnet_path, 
-        args.sdxl_checkpoint, 
-        args.enable_LCM,
+        face_encoder_dir = args.face_encoder_dir, 
+        face_adapter_path = args.face_adapter_path, 
+        controlnet_path = args.controlnet_path, 
+        lora_ckpt_path = args.lora_ckpt_path,
+        sdxl_ckpt_path = args.sdxl_ckpt_path, 
+        enable_lcm_lora = args.enable_LCM_LoRA,
     )
     
