@@ -1069,7 +1069,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         is_unet_compiled = is_compiled_module(self.unet)
         is_controlnet_compiled = is_compiled_module(self.controlnet)
         is_torch_higher_equal_2_1 = is_torch_version(">=", "2.1")
-                
+
         with self.progress_bar(total=num_inference_steps) as progress_bar:
 
             for i, t in enumerate(timesteps):

@@ -181,7 +181,7 @@ def main(
                 adapter_strength_ratio, 
             guidance_scale, 
                       seed, 
-            enable_lcm_lora, 
+                enable_LCM, 
             enhance_face_region, 
             # progress=gr.Progress(track_tqdm=True)
         ):
@@ -294,7 +294,7 @@ def main(
         pipe.enable_vae_tiling()
 
         # load and disable LCM LoRA
-        if enable_lcm_lora:
+        if enable_LCM:
             print("\nEnabling LoRA ...")
             pipe.load_lora_weights(lora_ckpt_path)
             pipe.enable_lora()
@@ -399,7 +399,7 @@ def main(
                 
                 submit = gr.Button("Submit", variant="primary")
                 
-                enable_lcm_lora = gr.Checkbox(
+                enable_LCM = gr.Checkbox(
                     label="Enable Fast Inference with LCM", value=enable_lcm_lora,
                     info="LCM speeds up the inference step, the trade-off is the quality of the generated image. It performs better with portrait face images rather than distant faces",
                 )
@@ -466,11 +466,13 @@ def main(
                 api_name=False,
             ).then(
                 fn=generate_image,
-                inputs=[face_file, pose_file, prompt, negative_prompt, style, num_steps, identitynet_strength_ratio, adapter_strength_ratio, guidance_scale, seed, enable_lcm_lora, enhance_face_region],
+                inputs=[face_file, pose_file, prompt, negative_prompt, style, 
+                        num_steps, identitynet_strength_ratio, adapter_strength_ratio, 
+                        guidance_scale, seed, enable_LCM, enhance_face_region],
                 outputs=[gallery, usage_tips]
             )
         
-            enable_lcm_lora.input(fn=toggle_lcm_ui, inputs=[enable_lcm_lora], outputs=[num_steps, guidance_scale], queue=False)
+            enable_LCM.input(fn=toggle_lcm_ui, inputs=[enable_LCM], outputs=[num_steps, guidance_scale], queue=False)
 
         # gr.Examples(
         #     examples=get_example(),
