@@ -34,8 +34,7 @@ import gradio as gr
 # global variable
 MAX_SEED = np.iinfo(np.int32).max
 
-# device = get_torch_device()
-device = 'cpu'
+device = get_torch_device()
 dtype = torch.float16 if str(device).__contains__("cuda") else torch.float32
 
 STYLE_NAMES = list(styles.keys())
