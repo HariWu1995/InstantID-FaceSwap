@@ -12,7 +12,7 @@ except Exception as e:
     xformers_available = False
 
 
-from ..webui.model_util import get_torch_device
+from webui.model_util import get_torch_device
 device = get_torch_device()
 
 
