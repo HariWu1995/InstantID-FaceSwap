@@ -1206,6 +1206,8 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                         callback(step_idx, t, latents)
         
         if not output_type == "latent":
+            print('\n\tUpcasting ...')
+
             # make sure the VAE is in float32 mode, as it overflows in float16
             needs_upcasting = self.vae.dtype == torch.float16 and self.vae.config.force_upcast
 
