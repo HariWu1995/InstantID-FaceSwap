@@ -7,13 +7,22 @@ try:
     import xformers
     import xformers.ops
     xformers_available = True
+
 except Exception as e:
     xformers_available = False
 
+
+from ..webui.model_util import get_torch_device
+device = get_torch_device()
+
+
 class RegionControler(object):
+
     def __init__(self) -> None:
         self.prompt_image_conditioning = []
+
 region_control = RegionControler()
+
 
 class AttnProcessor(nn.Module):
     r"""
@@ -427,6 +436,7 @@ class IPAttnProcessor2_0(torch.nn.Module):
                 mask = F.interpolate(region_mask[None, None], scale_factor=1/ratio, mode='nearest').reshape([1, -1, 1])
             else:
                 mask = torch.ones_like(ip_hidden_states)
+            mask = mask.to(device)
             ip_hidden_states = ip_hidden_states * mask
 
         hidden_states = hidden_states + self.scale * ip_hidden_states

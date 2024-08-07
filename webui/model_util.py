@@ -368,6 +368,7 @@ def load_models_xl(
 
     return tokenizers, text_encoders, unet, scheduler, vae
 
+
 def create_noise_scheduler(
     scheduler_name: AVAILABLE_SCHEDULERS = "ddpm",
     noise_scheduler_kwargs=None,
@@ -417,7 +418,6 @@ def torch_gc():
 
 
 from enum import Enum
-
 
 class CPUState(Enum):
     GPU = 0

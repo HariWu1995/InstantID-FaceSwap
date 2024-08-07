@@ -316,17 +316,17 @@ def main(
         print(f"\t[Debug] Prompt: {prompt}, \n\t[Debug] Neg Prompt: {negative_prompt}")
         
         images = pipe(
-                     prompt = prompt,
-            negative_prompt = negative_prompt,
-               image_embeds = face_emb,
-                      image = face_kps,
-               control_mask = control_mask,
-               controlnet_conditioning_scale = float(identitynet_strength_ratio),
-                         num_inference_steps = num_steps,
-                              guidance_scale = guidance_scale,
-                                      height = height,
-                                       width = width,
-                                   generator = generator
+                             prompt = prompt,
+                    negative_prompt = negative_prompt,
+                       image_embeds = face_emb,
+                              image = face_kps,
+                       control_mask = control_mask,
+      controlnet_conditioning_scale = float(identitynet_strength_ratio),
+                num_inference_steps = num_steps,
+                     guidance_scale = guidance_scale,
+                             height = height,
+                              width = width,
+                          generator = generator
         ).images
 
         return images[0], gr.update(visible=True)

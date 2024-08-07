@@ -485,6 +485,7 @@ class LongPromptWeight(object):
         prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
         return prompt_embeds
 
+
 def draw_kps(image_pil, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]):
     
     stickwidth = 4
@@ -514,6 +515,7 @@ def draw_kps(image_pil, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,2
     out_img_pil = PIL.Image.fromarray(out_img.astype(np.uint8))
     return out_img_pil
     
+
 class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
     
     def cuda(self, dtype=torch.float16, use_xformers=False):
@@ -568,7 +570,6 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         unet = self.unet
         attn_procs = {}
         for name in unet.attn_processors.keys():
-            cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
             if name.startswith("mid_block"):
                 hidden_size = unet.config.block_out_channels[-1]
             elif name.startswith("up_blocks"):
@@ -577,6 +578,8 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             elif name.startswith("down_blocks"):
                 block_id = int(name[len("down_blocks.")])
                 hidden_size = unet.config.block_out_channels[block_id]
+
+            cross_attention_dim = None if name.endswith("attn1.processor") else unet.config.cross_attention_dim
             if cross_attention_dim is None:
                 attn_procs[name] = AttnProcessor().to(unet.device, dtype=unet.dtype)
             else:
