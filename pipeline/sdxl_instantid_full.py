@@ -804,6 +804,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                 If `return_dict` is `True`, [`~pipelines.stable_diffusion.StableDiffusionPipelineOutput`] is returned,
                 otherwise a `tuple` is returned containing the output images.
         """
+        print('\n\n\nRunning pipeline ...')
 
         lpw = LongPromptWeight()
 
@@ -816,6 +817,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                 "1.0.0",
                 "Passing `callback` as an input argument to `__call__` is deprecated, consider using `callback_on_step_end`",
             )
+
         if callback_steps is not None:
             deprecate(
                 "callback_steps",
@@ -828,8 +830,10 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         # align format for control guidance
         if not isinstance(control_guidance_start, list) and isinstance(control_guidance_end, list):
             control_guidance_start = len(control_guidance_end) * [control_guidance_start]
+        
         elif not isinstance(control_guidance_end, list) and isinstance(control_guidance_start, list):
             control_guidance_end = len(control_guidance_start) * [control_guidance_end]
+        
         elif not isinstance(control_guidance_start, list) and not isinstance(control_guidance_end, list):
             mult = len(controlnet.nets) if isinstance(controlnet, MultiControlNetModel) else 1
             control_guidance_start, control_guidance_end = (
@@ -838,10 +842,12 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             )
         
         # 0. set ip_adapter_scale
+        print('\n\tSetting scale for IP-Adapter ...')
         if ip_adapter_scale is not None:
             self.set_ip_adapter_scale(ip_adapter_scale)
 
         # 1. Check inputs. Raise error if not correct
+        print('\n\tValidating inputs ...')
         self.check_inputs(
             prompt=prompt,
             prompt_2=prompt_2,
@@ -864,6 +870,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         self._cross_attention_kwargs = cross_attention_kwargs
 
         # 2. Define call parameters
+        print('\n\tDefining parameters ...')
         if prompt is not None and isinstance(prompt, str):
             batch_size = 1
         elif prompt is not None and isinstance(prompt, list):
@@ -884,6 +891,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         guess_mode = guess_mode or global_pool_conditions
 
         # 3.1 Encode input prompt
+        print('\n\tEncoding prompt ...')
         (
             prompt_embeds,
             negative_prompt_embeds,
@@ -900,6 +908,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         )
         
         # 3.2 Encode image prompt
+        print('\n\tEncoding image ...')
         prompt_image_emb = self._encode_prompt_image_emb(image_embeds, 
                                                          device,
                                                          num_images_per_prompt,
@@ -907,6 +916,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                                                          self.do_classifier_free_guidance)
         
         # 4. Prepare image
+        print('\n\tPreparing image ...')
         if isinstance(controlnet, ControlNetModel):
             image = self.prepare_image(
                 image=image,
@@ -946,6 +956,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             assert False
 
         # 4.1 Region control
+        print('\n\tControlling region ...')
         if control_mask is not None:
             mask_weight_image = control_mask
             mask_weight_image = np.array(mask_weight_image)
@@ -966,11 +977,13 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             region_control.prompt_image_conditioning = [dict(region_mask=None)]
 
         # 5. Prepare timesteps
+        print('\n\tPreparing timesteps ...')
         self.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps = self.scheduler.timesteps
         self._num_timesteps = len(timesteps)
 
         # 6. Prepare latent variables
+        print('\n\tPreparing variables ...')
         num_channels_latents = self.unet.config.in_channels
         latents = self.prepare_latents(
             batch_size * num_images_per_prompt,
@@ -984,6 +997,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         )
 
         # 6.5 Optionally get Guidance Scale Embedding
+        print('\n\tGetting Guidance Scale Embedding ...')
         timestep_cond = None
         if self.unet.config.time_cond_proj_dim is not None:
             guidance_scale_tensor = torch.tensor(self.guidance_scale - 1).repeat(batch_size * num_images_per_prompt)
@@ -991,10 +1005,13 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                 guidance_scale_tensor, embedding_dim=self.unet.config.time_cond_proj_dim
             ).to(device=device, dtype=latents.dtype)
 
-        # 7. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
+        # 7. Prepare extra step kwargs. 
+        # TODO: Logic should ideally just be moved out of the pipeline
+        print('\n\tPreparing extra step ...')
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
         # 7.1 Create tensor stating which controlnets to keep
+        print('\n\tCreating tensor for ControlNet ...')
         controlnet_keep = []
         for i in range(len(timesteps)):
             keeps = [
@@ -1004,6 +1021,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             controlnet_keep.append(keeps[0] if isinstance(controlnet, ControlNetModel) else keeps)
 
         # 7.2 Prepare added time ids & embeddings
+        print('\n\tPreparing time ids & embeddings ...')
         if isinstance(image, list):
             original_size = original_size or image[0].shape[-2:]
         else:
@@ -1046,6 +1064,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         encoder_hidden_states = torch.cat([prompt_embeds, prompt_image_emb], dim=1)
 
         # 8. Denoising loop
+        print('\n\tDenoising ...')
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         is_unet_compiled = is_compiled_module(self.unet)
         is_controlnet_compiled = is_compiled_module(self.controlnet)
