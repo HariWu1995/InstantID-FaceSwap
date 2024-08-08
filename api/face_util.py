@@ -282,7 +282,7 @@ def generate_image( face_image,
 
     # Clean
     del pipe, controlnet
-    if 'cuda' in device:
+    if str(device).__contains__("cuda"):
         torch.cuda.empty_cache()
 
     return images[0]
