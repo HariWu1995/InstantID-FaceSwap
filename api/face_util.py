@@ -11,8 +11,6 @@ import random
 import numpy as np
 import argparse
 
-import gradio as gr
-
 import PIL
 from PIL import Image
 
