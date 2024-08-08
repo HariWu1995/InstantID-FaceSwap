@@ -111,13 +111,13 @@ async def generate(
                            Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
              prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
     negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
-          num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=30), 
-     guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=5), 
+          num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
+     guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
                seed: int = Form(description=API_CONFIG['PARAMETERS']['seed'], default=3_3_2023), 
          enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=True), 
        enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=True),
-    strength_ip_adapter: int = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
-    strength_identitynet: int = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
+    strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
+    strength_identitynet: float = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
 ):
 
     try:        
@@ -176,13 +176,13 @@ async def faceswap(
                            Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
              prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
     negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
-          num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=30), 
-     guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=5), 
+          num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
+     guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
                seed: int = Form(description=API_CONFIG['PARAMETERS']['seed'], default=3_3_2023), 
          enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=True), 
        enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=True),
-    strength_ip_adapter: int = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
-    strength_identitynet: int = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
+    strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
+    strength_identitynet: float = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
 ):
 
     try:        
