@@ -148,6 +148,8 @@ async def generate(
                               MODEL_CONFIG = MODEL_CONFIG,
         )
 
+        # Response
+        print('\nResponding ...')
         if isinstance(generated_image, np.ndarray):
             image_in_bytes = generated_image.tobytes()
         elif isinstance(generated_image, PIL.Image):
@@ -216,6 +218,8 @@ async def faceswap(
                               MODEL_CONFIG = MODEL_CONFIG,
         )
 
+        # Response
+        print('\nResponding ...')
         if isinstance(generated_image, np.ndarray):
             image_in_bytes = generated_image.tobytes()
         elif isinstance(generated_image, PIL.Image):

@@ -1254,16 +1254,13 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                 image = self.watermark.apply_watermark(image)
 
             print('\n\tPostprocessing ...')
-            try:
-                image = self.image_processor.postprocess(image, output_type=output_type)
-            except Exception as e:
-                import traceback
-                print(traceback.format_exc())
+            image = self.image_processor.postprocess(image, output_type=output_type)
 
-        # Offload all models
+        # Offload all parameters
+        print('\n\tOffloading all parameters ...')
         self.maybe_free_model_hooks()
 
+        print('\n\tReturning outputs ...')
         if not return_dict:
             return (image,)
-
         return StableDiffusionXLPipelineOutput(images=image)
