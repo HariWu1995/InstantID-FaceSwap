@@ -234,9 +234,11 @@ def generate_image( face_image,
     pipe.load_ip_adapter_instantid(face_adapter_path)
 
     # save VRAM
-    print("\nEnabling CPU Offload ...")
+    print("\nEnabling GPU Efficient Memory ...")
     pipe.enable_model_cpu_offload()
-    pipe.enable_vae_tiling()
+    pipe.enable_xformers_memory_efficient_attention()
+    pipe.vae.enable_slicing()
+    pipe.vae.enable_tiling()
 
     # load and disable LCM LoRA
     if enable_LCM:
