@@ -11,6 +11,8 @@ import random
 import numpy as np
 import argparse
 
+import gradio as gr
+
 import PIL
 from PIL import Image
 
@@ -24,11 +26,9 @@ from huggingface_hub import hf_hub_download
 import insightface
 from insightface.app import FaceAnalysis
 
-from model_util import load_models_xl, get_torch_device, torch_gc
-from style_template import styles
+from api.model_util import load_models_xl, get_torch_device, torch_gc
+from api.style_template import styles
 from pipeline.sdxl_instantid_full import StableDiffusionXLInstantIDPipeline as SdXlInstantIdPipeline
-
-import gradio as gr
 
 
 # global variable
@@ -241,7 +241,11 @@ def generate_image( face_image,
     # load and disable LCM LoRA
     if enable_LCM:
         print("\nEnabling LoRA ...")
-        pipe.load_lora_weights(lora_ckpt_path)
+        if lora_ckpt_path.endswith('safetensors'):
+            lora_dir, ckpt_name = os.path.split(lora_ckpt_path)
+            pipe.load_lora_weights(lora_dir, weight_name=ckpt_name)
+        else:
+            pipe.load_lora_weights(lora_ckpt_path)
         pipe.enable_lora()
         pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
     else:

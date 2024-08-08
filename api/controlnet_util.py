@@ -1,17 +1,20 @@
 import torch
 import numpy as np
+
 from PIL import Image
-from controlnet_aux import OpenposeDetector
-from model_util import get_torch_device
 import cv2
 
-
 from transformers import DPTImageProcessor, DPTForDepthEstimation
+from controlnet_aux import OpenposeDetector
+
+from api.model_util import get_torch_device
+
 
 device = get_torch_device()
 depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to(device)
 feature_extractor = DPTImageProcessor.from_pretrained("Intel/dpt-hybrid-midas")
 openpose = OpenposeDetector.from_pretrained("lllyasviel/ControlNet")
+
 
 def get_depth_map(image):
     image = feature_extractor(images=image, return_tensors="pt").pixel_values.to("cuda")
@@ -32,6 +35,7 @@ def get_depth_map(image):
     image = image.permute(0, 2, 3, 1).cpu().numpy()[0]
     image = Image.fromarray((image * 255.0).clip(0, 255).astype(np.uint8))
     return image
+
 
 def get_canny_image(image, t1=100, t2=200):
     image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)

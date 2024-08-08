@@ -7,6 +7,6 @@ set VENV_DIR=C:\Users\Mr. RIAH\Documents\GenAI\sd_env
 ::TIMEOUT /T 1
 
 call %PYTHON% -m pip install accelerate peft insightface controlnet_aux opencv-python
-call %PYTHON% -m api.main
+call %PYTHON% webui/app_client.py
 
 pause
