@@ -141,7 +141,7 @@ def generate_image( face_image,
     height, width, _ = face_image_cv2.shape
 
     # Load face encoder
-    print("\nLoading Face Encoder ...")
+    print(f"\nLoading Face Encoder @ {face_encoder_dir}...")
     app = FaceAnalysis(name='antelopev2', root=face_encoder_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
     
@@ -188,10 +188,10 @@ def generate_image( face_image,
     generator = torch.Generator(device=device).manual_seed(seed)
 
     # Load pipeline
-    print("\nLoading ControlNet ...")
+    print(f"\nLoading ControlNet @ {controlnet_path}...")
     controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
 
-    print("\nLoading SD-XL Instant-Id Pipeline ...")
+    print(f"\nLoading SD-XL Instant-Id Pipeline @ {sdxl_ckpt_path}...")
     if sdxl_ckpt_path.endswith(".ckpt") \
     or sdxl_ckpt_path.endswith(".safetensors"):
 
@@ -230,7 +230,7 @@ def generate_image( face_image,
 
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
-    print("\nLoading Instant-Id IP-Adapter ...")
+    print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path}...")
     pipe.load_ip_adapter_instantid(face_adapter_path)
 
     # save VRAM
