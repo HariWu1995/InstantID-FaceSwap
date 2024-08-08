@@ -103,7 +103,7 @@ async def config(
     return response
 
 
-@app.post("/generate", responses={200: {"content": {"image/png": {}}}}, response_class=Response)
+@app.post("/generate")
 async def generate(
          face_image: UploadFile = \
                            File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
@@ -152,7 +152,7 @@ async def generate(
         print('\nResponding ...')
         if isinstance(generated_image, np.ndarray):
             image_in_bytes = generated_image.tobytes()
-        elif isinstance(generated_image, PIL.Image):
+        elif isinstance(generated_image, PIL.Image.Image):
             image_in_bytes = BytesIO()
             generated_image.save(image_in_bytes, format='PNG')
             image_in_bytes = image_in_bytes.getvalue()
@@ -168,7 +168,7 @@ async def generate(
     return response
 
 
-@app.post("/faceswap", responses={200: {"content": {"image/png": {}}}}, response_class=Response)
+@app.post("/faceswap")
 async def faceswap(
          face_image: UploadFile = \
                            File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
@@ -222,7 +222,7 @@ async def faceswap(
         print('\nResponding ...')
         if isinstance(generated_image, np.ndarray):
             image_in_bytes = generated_image.tobytes()
-        elif isinstance(generated_image, PIL.Image):
+        elif isinstance(generated_image, PIL.Image.Image):
             image_in_bytes = BytesIO()
             generated_image.save(image_in_bytes, format='PNG')
             image_in_bytes = image_in_bytes.getvalue()
