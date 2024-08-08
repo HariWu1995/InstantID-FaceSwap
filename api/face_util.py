@@ -35,6 +35,8 @@ MAX_SEED = np.iinfo(np.int32).max
 device = get_torch_device()
 dtype = torch.float16 if str(device).__contains__("cuda") else torch.float32
 
+print(f"\n\nDevice = {device} - Dtype = {dtype}")
+
 STYLE_NAMES = list(styles.keys())
 STYLE_DEFAULT = "(No style)"
 

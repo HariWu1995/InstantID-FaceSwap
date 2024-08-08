@@ -67,9 +67,9 @@ async def custom_swagger_ui_html(request: Request):
     query_params = str(request.query_params)
     openapi_url = app.root_path + app.openapi_url + "?" + query_params
     return get_swagger_ui_html(
-        openapi_url=openapi_url,
-        title="DataSpire - Documents",
-        swagger_favicon_url = "https://assets.dataspire.ai/static/favicon.ico",
+        openapi_url = openapi_url,
+                title = "Hari Yu - Demo",
+    swagger_favicon_url = "https://assets.dataspire.ai/static/favicon.ico",
     )
 
 
