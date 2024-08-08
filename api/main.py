@@ -69,7 +69,7 @@ async def custom_swagger_ui_html(request: Request):
     return get_swagger_ui_html(
         openapi_url = openapi_url,
                 title = "Hari Yu - Demo",
-    swagger_favicon_url = "https://assets.dataspire.ai/static/favicon.ico",
+    swagger_favicon_url = "https://github.com/HariWu1995/InstantID-FaceSwap/blob/main/assets/favicon.ico",
     )
 
 
