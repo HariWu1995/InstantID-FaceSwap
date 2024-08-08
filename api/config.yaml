@@ -1,0 +1,35 @@
+SERVER:
+  host: 0.0.0.0
+  port: 8080
+  log_level: info
+  workers: 
+
+DESCRIPTION:
+  title: Instant-ID FaceSwap
+  overview: API for FaceSwap using SDXL + Instant-ID
+
+PARAMETERS:
+  face_encoder_dir: Path to InsightFace Encoder
+  face_adapter_path: Path to Instant-ID Adapter
+  controlnet_path: Path to Instant-ID Controlnet
+  sdxl_ckpt_path: Path to SD-XL Checkpoint
+  lora_ckpt_path: Path to LCM LoRA
+
+  face_image: "Image of face"
+  pose_image: "Image of human pose to swap face with 'face_image'"
+  style_name: "Style to be applied in prompt formatting"
+  prompt_positive: "Description of what you desire to have in output"
+  prompt_negative: "Description of what you desire NOT to have in output"
+  num_steps: "Number of denosing steps.\nShould be 5 if LCM is enabled, else 30.\nDefault = 5"
+  guidance_scale: "Parameter that controls how much the generation follows the prompt.\nShould be 0 if LCM is enabled, else 5.\nDefault = 0."
+  seed: "Random seed"
+  enable_LCM: "LCM speeds up the inference step, the trade-off is the quality of the generated image.\nIt performs better with portrait face images rather than distant faces.\nDefault = True"
+  enhance_face: "Enhance non-face region.\nDefault = True"
+  strength_identitynet: "IdentityNet strength (for fidelity).\nDefault = 0.8"
+  strength_ip_adapter: "Image adapter strength (for detail).\nDefault = 0.8"
+
+TAGS:
+  - name: FaceSwap
+    description: FaceSwap with Instant-ID
+
+VERSION: 1.0.0

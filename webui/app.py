@@ -411,7 +411,7 @@ def main(pretrained_model_name_or_path="wangqixun/YamerMIX_v8", enable_lcm_arg=F
 
             with gr.Column():
                 gallery = gr.Image(label="Generated Images")
-                usage_tips = gr.Markdown(label="Usage tips of InstantID", value=tips ,visible=False)
+                usage_tips = gr.Markdown(label="Usage tips of InstantID", value=tips, visible=False)
 
             submit.click(
                 fn=remove_tips,
