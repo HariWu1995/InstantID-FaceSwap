@@ -131,6 +131,7 @@ async def generate(
         face_image = await face_image.read()
         face_image = Image.open(BytesIO(face_image)).convert('RGB')
 
+        # Run pipeline
         generated_image = generate_image(
                                 face_image = face_image, 
                                 pose_image = None, 
@@ -195,6 +196,10 @@ async def faceswap(
         face_image = await face_image.read()
         face_image = Image.open(BytesIO(face_image)).convert('RGB')
 
+        pose_image = await pose_image.read()
+        pose_image = Image.open(BytesIO(pose_image)).convert('RGB')
+
+        # Run pipeline
         generated_image = generate_image(
                                 face_image = face_image, 
                                 pose_image = pose_image, 
