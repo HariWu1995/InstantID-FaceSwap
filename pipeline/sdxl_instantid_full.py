@@ -41,15 +41,14 @@ from diffusers.utils.import_utils import is_xformers_available
 
 from ip_adapter.resampler import Resampler
 from ip_adapter.utils import is_torch2_available
-
 if is_torch2_available():
     from ip_adapter.attention_processor import IPAttnProcessor2_0 as IPAttnProcessor, AttnProcessor2_0 as AttnProcessor
 else:
     from ip_adapter.attention_processor import IPAttnProcessor, AttnProcessor
 from ip_adapter.attention_processor import region_control
 
-logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
+logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -107,6 +106,7 @@ EXAMPLE_DOC_STRING = """
 
 from transformers import CLIPTokenizer
 from diffusers.pipelines.stable_diffusion_xl import StableDiffusionXLPipeline
+
 class LongPromptWeight(object):
     
     """
@@ -629,46 +629,55 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
         self,
+
+        # Inputs
         prompt: Union[str, List[str]] = None,
         prompt_2: Optional[Union[str, List[str]]] = None,
+        negative_prompt: Optional[Union[str, List[str]]] = None,
+        negative_prompt_2: Optional[Union[str, List[str]]] = None,
+
         image: PipelineImageInput = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
-        num_inference_steps: int = 50,
-        guidance_scale: float = 5.0,
-        negative_prompt: Optional[Union[str, List[str]]] = None,
-        negative_prompt_2: Optional[Union[str, List[str]]] = None,
-        num_images_per_prompt: Optional[int] = 1,
-        eta: float = 0.0,
-        generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
-        latents: Optional[torch.FloatTensor] = None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
-        pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        image_embeds: Optional[torch.FloatTensor] = None,
-        output_type: Optional[str] = "pil",
-        return_dict: bool = True,
-        cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        controlnet_conditioning_scale: Union[float, List[float]] = 1.0,
-        guess_mode: bool = False,
-        control_guidance_start: Union[float, List[float]] = 0.0,
-        control_guidance_end: Union[float, List[float]] = 1.0,
         original_size: Tuple[int, int] = None,
         crops_coords_top_left: Tuple[int, int] = (0, 0),
         target_size: Tuple[int, int] = None,
         negative_original_size: Optional[Tuple[int, int]] = None,
         negative_crops_coords_top_left: Tuple[int, int] = (0, 0),
         negative_target_size: Optional[Tuple[int, int]] = None,
+        
+        # Embeddings (skip default embedding)
+        prompt_embeds: Optional[torch.FloatTensor] = None,
+        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
+        pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
+        negative_pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
+        image_embeds: Optional[torch.FloatTensor] = None,
+
+        # Settings
+        num_inference_steps: int = 50,
+        guidance_scale: float = 5.0,
+        num_images_per_prompt: Optional[int] = 1,
+        eta: float = 0.0,
+        cross_attention_kwargs: Optional[Dict[str, Any]] = None,
+        controlnet_conditioning_scale: Union[float, List[float]] = 1.0,
+        guess_mode: bool = False,
+        control_guidance_start: Union[float, List[float]] = 0.0,
+        control_guidance_end: Union[float, List[float]] = 1.0,
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
 
+        # Outputs
+        output_type: Optional[str] = "pil",
+        return_dict: bool = True,
+
         # IP adapter
         ip_adapter_scale=None,
-
-        # Enhance Face Region
         control_mask = None,
+
+        # Others
+        generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+        latents: Optional[torch.FloatTensor] = None,
 
         **kwargs,
     ):

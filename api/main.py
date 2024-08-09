@@ -20,10 +20,11 @@ from fastapi.exceptions import HTTPException
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.io_util import load_config, load_multipart_file
 from api.templates import OutputAPI
 from api.conversion import image2base64
-from api.io_util import load_config, load_multipart_file
-from api.face_util import generate_image, STYLE_NAMES, STYLE_DEFAULT
+from api.facegen_util import generate_image, STYLE_NAMES, STYLE_DEFAULT
+from api.faceswap_util import swap_face_only
 
 
 STYLE_NAMES = tuple(STYLE_NAMES)
@@ -202,7 +203,7 @@ async def faceswap(
         pose_image = Image.open(BytesIO(pose_image)).convert('RGB')
 
         # Run pipeline
-        generated_image = generate_image(
+        generated_image = swap_face_only(
                                 face_image = face_image, 
                                 pose_image = pose_image, 
                                     prompt = prompt, 
