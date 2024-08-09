@@ -5,6 +5,7 @@ import os
 import random
 import argparse
 import traceback
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 import numpy as np
 import PIL
@@ -102,6 +103,53 @@ async def config(
         response = API_RESPONDER.result(is_successful=False, err_log=traceback.format_exc())
     
     return response
+
+
+@app.post("/upload")
+async def upload(
+        images: List[UploadFile] = \
+                        File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
+        return_type: Literal['first','last','zip'] = \
+                        Form(description="Return 1st or last input, or zipped folder of all inputs", default='zip')
+    ):
+    """
+    Test:
+        multiple_files = [
+        ('images', ('foo.png', open('foo.png', 'rb'), 'image/png')),
+        ('images', ('bar.png', open('bar.png', 'rb'), 'image/png'))]
+        r = requests.post(url, files=multiple_files)
+    """
+    _images = []
+    for img in images:
+        img = await img.read()
+        img = Image.open(BytesIO(img)).convert('RGB')
+        _images.append(img)
+
+    if return_type != 'zip':
+
+        if return_type == 'first':
+            img = _images[0]
+        else:
+            img = _images[-1]
+
+        image_in_bytes = BytesIO()
+        img.save(image_in_bytes, format='PNG')
+        image_in_bytes = image_in_bytes.getvalue()
+        return Response(content=image_in_bytes, media_type="image/png")
+
+    else:
+        buffer = BytesIO()
+        with ZipFile(buffer, mode='w', compression=ZIP_DEFLATED) as temp:
+            for file in images:
+                fcontent = await file.read()
+                fname = ZipInfo(file.filename)
+                temp.writestr(fname, fcontent)
+
+        return StreamingResponse(
+            iter([buffer.getvalue()]), 
+            media_type="application/x-zip-compressed", 
+            headers={ "Content-Disposition": "attachment; filename=images.zip"}
+        )
 
 
 @app.post("/generate")

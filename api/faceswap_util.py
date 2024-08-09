@@ -26,7 +26,7 @@ from insightface.app import FaceAnalysis
 
 from api.model_util import load_models_xl, get_torch_device, torch_gc
 from api.style_template import styles
-from pipeline.sdxl_instantid_inpaint import StableDiffusionXLInstantIDPipeline as SdXlInstantIdPipeline
+from pipeline.sdxl_instantid_inpaint import StableDiffusionXLInstantIDInpaintPipeline as SdXlInstantIdPipeline
 
 
 # global variable
