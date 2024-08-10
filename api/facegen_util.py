@@ -4,13 +4,14 @@ sys.path.append('./')
 from typing import Tuple
 
 import os
-import cv2
-import math
-import torch
 import random
-import numpy as np
 import argparse
 
+import math
+import torch
+import numpy as np
+
+import cv2
 import PIL
 from PIL import Image
 
@@ -104,7 +105,8 @@ def resize_img(input_image, max_side=1280, min_side=1024, size=None,
         res = np.ones([max_side, max_side, 3], dtype=np.uint8) * 255
         offset_x = (max_side - w_resize_new) // 2
         offset_y = (max_side - h_resize_new) // 2
-        res[offset_y:offset_y+h_resize_new, offset_x:offset_x+w_resize_new] = np.array(input_image)
+        res[offset_y:offset_y+h_resize_new, 
+            offset_x:offset_x+w_resize_new] = np.array(input_image)
         input_image = Image.fromarray(res)
     return input_image
 
@@ -128,7 +130,7 @@ def generate_image( face_image,
            enhance_face_region, MODEL_CONFIG):
 
     # Re-load Model every query, to save memory
-    face_encoder_dir = MODEL_CONFIG.get('face_encoder_dir', './')
+    face_analyzer_dir = MODEL_CONFIG.get('face_analyzer_dir', './')
     face_adapter_path = MODEL_CONFIG.get('face_adapter_path', './checkpoints/ip-adapter.bin')
     controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
@@ -137,35 +139,33 @@ def generate_image( face_image,
     # Preprocess face
     # face_image = load_image(face_image_path)
     face_image = resize_img(face_image)
-    face_image_cv2 = convert_from_image_to_cv2(face_image)
-    height, width, _ = face_image_cv2.shape
+    face_image_arr = convert_from_image_to_cv2(face_image)
+    height, width, _ = face_image_arr.shape
 
-    # Load face encoder
-    print(f"\nLoading Face Encoder @ {face_encoder_dir} ...")
-    app = FaceAnalysis(name='antelopev2', root=face_encoder_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    # Load face analyzer
+    print(f"\nLoading Face Analyzer @ {face_analyzer_dir} ...")
+    app = FaceAnalysis(name='antelopev2', root=face_analyzer_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
     
     # Extract face features
     print("\nExtracting targeted face features ...")
-    face_info = app.get(face_image_cv2)
-    
+    face_info = app.get(face_image_arr)
     if len(face_info) == 0:
-        raise gr.Error(f"Cannot find any face in the image! Please upload another person image")
+        raise ValueError(f"Cannot find any face in the targeted image! Please upload another person image")
     
     face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]  # only use the maximum face
     face_emb = face_info['embedding']
-    face_kps = draw_kps(convert_from_cv2_to_image(face_image_cv2), face_info['kps'])
+    face_kps = draw_kps(face_image, face_info['kps'])
     
     if pose_image is not None:
         # pose_image = load_image(pose_image_path)
         pose_image = resize_img(pose_image)
-        pose_image_cv2 = convert_from_image_to_cv2(pose_image)
+        pose_image_arr = convert_from_image_to_cv2(pose_image)
         
         print("\nExtracting referenced face features ...")
-        face_info = app.get(pose_image_cv2)
-        
+        face_info = app.get(pose_image_arr)
         if len(face_info) == 0:
-            raise gr.Error(f"Cannot find any face in the reference image! Please upload another person image")
+            raise ValueError(f"Cannot find any face in the reference image! Please upload another person image")
         
         face_info = face_info[-1]
         face_kps = draw_kps(pose_image, face_info['kps'])
@@ -185,8 +185,6 @@ def generate_image( face_image,
     else:
         control_mask = None
                     
-    generator = torch.Generator(device=device).manual_seed(seed)
-
     # Load pipeline
     print(f"\nLoading ControlNet @ {controlnet_path} ...")
     controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
@@ -277,7 +275,7 @@ def generate_image( face_image,
                    guidance_scale = guidance_scale,
                            height = height,
                             width = width,
-                        generator = generator
+                        generator = torch.Generator(device=device).manual_seed(seed),
     ).images
 
     # Clean

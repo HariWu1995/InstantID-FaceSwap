@@ -4,15 +4,16 @@ sys.path.append('./')
 from typing import Tuple
 
 import os
-import cv2
-import math
-import torch
 import random
-import numpy as np
 import argparse
 
+import cv2
 import PIL
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+
+import math
+import numpy as np
+import torch
 
 import diffusers
 from diffusers.utils import load_image
@@ -23,6 +24,9 @@ from huggingface_hub import hf_hub_download
 
 import insightface
 from insightface.app import FaceAnalysis
+
+from sam2.build_sam import build_sam2
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 from api.model_util import load_models_xl, get_torch_device, torch_gc
 from api.style_template import styles
@@ -104,7 +108,8 @@ def resize_img(input_image, max_side=1280, min_side=1024, size=None,
         res = np.ones([max_side, max_side, 3], dtype=np.uint8) * 255
         offset_x = (max_side - w_resize_new) // 2
         offset_y = (max_side - h_resize_new) // 2
-        res[offset_y:offset_y+h_resize_new, offset_x:offset_x+w_resize_new] = np.array(input_image)
+        res[offset_y:offset_y+h_resize_new, 
+            offset_x:offset_x+w_resize_new] = np.array(input_image)
         input_image = Image.fromarray(res)
     return input_image
 
@@ -128,52 +133,135 @@ def swap_face_only( face_image,
            enhance_face_region, MODEL_CONFIG):
 
     # Re-load Model every query, to save memory
-    face_encoder_dir = MODEL_CONFIG.get('face_encoder_dir', './')
+    face_analyzer_dir = MODEL_CONFIG.get('face_analyzer_dir', './')
     face_adapter_path = MODEL_CONFIG.get('face_adapter_path', './checkpoints/ip-adapter.bin')
     controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
     lora_ckpt_path = MODEL_CONFIG.get('lora_ckpt_path', 'latent-consistency/lcm-lora-sdxl')
+    sam_ckpt_path = MODEL_CONFIG.get('sam_ckpt_path', './checkpoints/sam2_hiera_small.pt')
     
     # Preprocess face
     # face_image = load_image(face_image_path)
     face_image = resize_img(face_image)
-    face_image_cv2 = convert_from_image_to_cv2(face_image)
-    height, width, _ = face_image_cv2.shape
+    face_image_arr = convert_from_image_to_cv2(face_image)
+    height, width, _ = face_image_arr.shape
+    
+    # pose_image = load_image(pose_image_path)
+    pose_image = resize_img(pose_image)
+    pose_image_arr = convert_from_image_to_cv2(pose_image)
 
-    # Load face encoder
-    print(f"\nLoading Face Encoder @ {face_encoder_dir} ...")
-    app = FaceAnalysis(name='antelopev2', root=face_encoder_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-    app.prepare(ctx_id=0, det_size=(640, 640))
+    # Load face analyzer
+    print(f"\nLoading Face Analyzer @ {face_analyzer_dir} ...")
+    face_analyzer = FaceAnalysis(name='antelopev2', 
+                                 root=face_analyzer_dir, 
+                            providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    face_analyzer.prepare(ctx_id=0, det_size=(640, 640))
     
     # Extract face features
     print("\nExtracting targeted face features ...")
-    face_info = app.get(face_image_cv2)
-    
+    face_info = face_analyzer.get(face_image_arr)
     if len(face_info) == 0:
-        raise gr.Error(f"Cannot find any face in the image! Please upload another person image")
+        raise ValueError(f"Cannot find any face in the targeted image! Please upload another person image")
     
     face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]  # only use the maximum face
+    face_kps = draw_kps(face_image, face_info['kps'])
     face_emb = face_info['embedding']
-    face_kps = draw_kps(convert_from_cv2_to_image(face_image_cv2), face_info['kps'])
     
-    if pose_image is not None:
-        # pose_image = load_image(pose_image_path)
-        pose_image = resize_img(pose_image)
-        pose_image_cv2 = convert_from_image_to_cv2(pose_image)
-        
-        print("\nExtracting referenced face features ...")
-        face_info = app.get(pose_image_cv2)
-        
-        if len(face_info) == 0:
-            raise gr.Error(f"Cannot find any face in the reference image! Please upload another person image")
-        
-        face_info = face_info[-1]
-        face_kps = draw_kps(pose_image, face_info['kps'])
-        
-        width, height = face_kps.size
+    print("\nExtracting referenced face features ...")
+    face_info = face_analyzer.get(pose_image_arr)
+    if len(face_info) == 0:
+        raise ValueError(f"Cannot find any face in the reference image! Please upload another person image")
+    
+    face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]  # only use the maximum face
+    face_kps = draw_kps(pose_image, face_info['kps'])
+    width, height = face_kps.size
 
-    # Remove face detector to save memory
-    del app
+    # Load Segment-Anything-Model
+    print(f"\nLoading SAM @ {sam_ckpt_path} ...")
+    sam_model = build_sam2(sam_ckpt_path.replace('.pt','.yaml'), 
+                           sam_ckpt_path, device=device)
+    segmentor = SAM2ImagePredictor(sam_model)
+
+    # Automatic segmentation for face mask
+    face_bbox = np.array([face_info['bbox']])
+    face_w = face_bbox[2] - face_bbox[0]
+    face_kpts = face_info['landmark_2d_106'][33:] # ignore face-contour
+    face_kpts = list(face_kpts)
+    face_kpts.extend([
+        # Add points of ears
+        face_info['landmark_2d_106'][12] - np.array([5, 0]),
+        face_info['landmark_2d_106'][28] + np.array([5, 0]),
+
+        # Add points of forehead
+        face_info['landmark_2d_106'][ 50] - np.array([0, 10]),
+        face_info['landmark_2d_106'][105] - np.array([0, 10]),
+    ])
+    noface_kpts = [
+        # Ignore points of neck
+        face_info['landmark_2d_106'][i] + np.array([0, 5])
+                                 for i in [0] + list(range(2, 9)) + list(range(18, 25))
+    ]
+    face_labels = np.array([1] * len(face_kpts) + [0] * len(noface_kpts))
+    face_kpts = np.array(face_kpts + noface_kpts)
+    
+    print("\nSegmenting inside bounding-box ...")
+    with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+        segmentor.set_image(pose_image_arr)
+        masks, _, _ = segmentor.predict( box = face_bbox,
+                                point_coords = face_kpts,
+                                point_labels = face_labels,
+                            multimask_output = False,)
+    face_mask = (masks[0] > 0.333).astype(np.uint8)
+    cv2.imwrite('segment.png', face_mask * 255)
+
+    # Noise removal
+    print("\nRemoving noise in face mask ...")
+    iters = 7
+    kernel = np.ones((1, 1), np.uint8)
+    face_mask = cv2.erode(face_mask, kernel, iterations=iters)
+    face_mask = cv2.dilate(face_mask, kernel, iterations=iters)
+
+    # Contour-and-Convex Filling
+    print("\nFilling the largest contour ...")
+    temp_mask = np.zeros(face_mask.shape, np.uint8)
+    contours, _ = cv2.findContours(face_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    contour = max(contours, key=cv2.contourArea)
+    border = cv2.convexHull(contour, False)
+    cv2.drawContours(temp_mask, [border], 0, 1, -1)
+    cv2.imwrite('contour.png', temp_mask * 255)
+
+    # Smoothing & padding mask
+    print("\nPadding ...")
+    kernel = np.ones((3, 3), np.uint8) 
+    face_mask = cv2.medianBlur(temp_mask, 19)
+    face_mask = cv2.dilate(face_mask, kernel, iterations=11)
+
+    # face_mask = np.tile(face_mask, (3, 1, 1))
+    # face_mask = np.swapaxes(face_mask, 1, 2)
+    # face_mask = np.swapaxes(face_mask, 0, 2)
+
+    face_mask = Image.fromarray(face_mask * 255, mode='L')
+    overlay = Image.new('RGBA', pose_image.size, (255, 255, 255, 0))
+    drawing = ImageDraw.Draw(overlay)
+    drawing.bitmap((0, 0), face_mask, fill=(255, 0, 0, 100))
+
+    pose_image = pose_image.convert('RGBA')
+    pose_image.putalpha(200)
+    image = Image.alpha_composite(pose_image, overlay)
+
+    font = ImageFont.truetype(r"C:\Users\Mr. RIAH\Documents\Spiritual\LaSoTuVi\LaSoTuVi\assets\flutter_assets\assets\fonts\Roboto_Condensed\RobotoCondensed-Light.ttf", 19)
+    drawing = ImageDraw.Draw(image)
+    for pi, pt in enumerate(face_info['landmark_2d_106'].tolist()):
+        # print(pi, pt)
+        pt = np.array(pt)
+        pt_ = tuple(list(pt-3) + list(pt+3))
+        drawing.ellipse(xy=pt_, fill=(0, 0, 255), outline=(255, 255, 255), width=1)
+        drawing.text(list(pt), str(pi+1), font=font, align ="right")  
+
+    return image
+
+    # Remove face detector & segmentor to save memory
+    del face_analyzer, segmentor
 
     if enhance_face_region:
         print("\nEnhancing face ...")
@@ -185,8 +273,6 @@ def swap_face_only( face_image,
     else:
         control_mask = None
                     
-    generator = torch.Generator(device=device).manual_seed(seed)
-
     # Load pipeline
     print(f"\nLoading ControlNet @ {controlnet_path} ...")
     controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
@@ -277,7 +363,7 @@ def swap_face_only( face_image,
                    guidance_scale = guidance_scale,
                            height = height,
                             width = width,
-                        generator = generator
+                        generator = torch.Generator(device=device).manual_seed(seed),
     ).images
 
     # Clean

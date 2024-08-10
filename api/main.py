@@ -33,11 +33,12 @@ STYLE_NAMES = tuple(STYLE_NAMES)
 
 # Model Config
 MODEL_CONFIG = dict(
-    face_encoder_dir = './',
+    face_analyzer_dir = './',
     face_adapter_path = './checkpoints/ip-adapter.bin',
     controlnet_path = './checkpoints/ControlNetModel',
     sdxl_ckpt_path = "wangqixun/YamerMIX_v8",
     lora_ckpt_path = "latent-consistency/lcm-lora-sdxl",
+     sam_ckpt_path = "./checkpoints/sam2_hiera_small.pt",
 )
 
 
@@ -82,20 +83,22 @@ async def redirect():
 
 @app.post("/config")
 async def config(
-    face_encoder_dir  : str = Form(description=API_CONFIG['PARAMETERS']['face_encoder_dir'], default=MODEL_CONFIG['face_encoder_dir']), 
+    face_analyzer_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
     face_adapter_path : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_path'], default=MODEL_CONFIG['face_adapter_path']), 
     controlnet_path   : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
     sdxl_ckpt_path    : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
     lora_ckpt_path    : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
+     sam_ckpt_path    : str = Form(description=API_CONFIG['PARAMETERS']['sam_ckpt_path'], default=MODEL_CONFIG['sam_ckpt_path']), 
 ):
     try:
         global MODEL_CONFIG
         MODEL_CONFIG.update(dict(
-            face_encoder_dir = face_encoder_dir,
+            face_analyzer_dir = face_analyzer_dir,
             face_adapter_path = face_adapter_path,
             controlnet_path = controlnet_path,
             sdxl_ckpt_path = sdxl_ckpt_path,
             lora_ckpt_path = lora_ckpt_path,
+             sam_ckpt_path =  sam_ckpt_path,
         ))
         response = API_RESPONDER.result(is_successful=True, data=MODEL_CONFIG)
 
@@ -182,19 +185,19 @@ async def generate(
 
         # Run pipeline
         generated_image = generate_image(
-                                face_image = face_image, 
-                                pose_image = None, 
-                                    prompt = prompt, 
-                           negative_prompt = negative_prompt, 
-                                style_name = style_name, 
-                                 num_steps = num_steps, 
-                identitynet_strength_ratio = strength_identitynet, 
-                    adapter_strength_ratio = strength_ip_adapter, 
-                            guidance_scale = guidance_scale, 
-                                      seed = seed, 
-                                enable_LCM = enable_LCM, 
-                       enhance_face_region = enhance_face, 
-                              MODEL_CONFIG = MODEL_CONFIG,
+                            face_image = face_image, 
+                            pose_image = None, 
+                                prompt = prompt, 
+                       negative_prompt = negative_prompt, 
+                            style_name = style_name, 
+                             num_steps = num_steps, 
+            identitynet_strength_ratio = strength_identitynet, 
+                adapter_strength_ratio = strength_ip_adapter, 
+                        guidance_scale = guidance_scale, 
+                                  seed = seed, 
+                            enable_LCM = enable_LCM, 
+                   enhance_face_region = enhance_face, 
+                          MODEL_CONFIG = MODEL_CONFIG,
         )
 
         # Response
