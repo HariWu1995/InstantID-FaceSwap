@@ -208,9 +208,13 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
 
-        # IP adapter
+        # Controlnet
         ip_adapter_scale=None,
         control_mask=None,
+
+        # Outputs
+        output_type: Optional[str] = "pil",
+        return_dict: bool = True,
 
         # Others
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,

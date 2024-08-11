@@ -663,7 +663,7 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
 
-        # IP adapter
+        # Controlnet
         ip_adapter_scale=None,
         control_mask = None,
 
