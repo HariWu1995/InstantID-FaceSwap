@@ -160,7 +160,8 @@ def swap_face_only( face_image,
         adapter_strength_ratio, 
                 guidance_scale, 
                           seed, 
-                    enable_LCM, MODEL_CONFIG):
+                    enable_LCM, 
+           enhance_face_region, MODEL_CONFIG, **kwargs):
 
     # Re-load Model every query, to save memory
     face_segmentor_dir = MODEL_CONFIG.get('face_segmentor_dir', './checkpoints')

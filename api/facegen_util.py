@@ -127,7 +127,7 @@ def generate_image( face_image,
                 guidance_scale, 
                           seed, 
                     enable_LCM, 
-           enhance_face_region, MODEL_CONFIG):
+           enhance_face_region, MODEL_CONFIG, **kwargs):
 
     # Re-load Model every query, to save memory
     face_analyzer_dir = MODEL_CONFIG.get('face_analyzer_dir', './')
