@@ -8,15 +8,11 @@ This module contains generic functionality:
 * Image preprocessing
 * Plotting
 """
-
-
 import os
 from itertools import chain
 #
 import numpy as np
 import torch
-import wget
-import zipfile
 from PIL import Image, ImageColor
 #
 from . import caffe_pb2
@@ -62,12 +58,14 @@ def load_model_parameters(
     """
     pt_path = os.path.join(params_dir, state_dict_name)
     caffe_path = os.path.join(params_dir, caffemodel_name)
+
     # first try to load pytorch state_dict
     if os.path.exists(pt_path):
         statedict = torch.load(pt_path)
         model.load_state_dict(statedict, strict=True)
         print("Loaded parameters from", pt_path)
         return
+
     # otherwise try to load caffemodel
     elif os.path.exists(caffe_path):
         statedict = load_caffemodel_as_statedict(caffe_path)
@@ -75,14 +73,20 @@ def load_model_parameters(
         print("Loaded parameters from", caffe_path)
         print("Consider saving them as pytorch state_dict for faster loading")
         return
+
     # if none present, try to download, save in params_dir, and load
     try:
+        import wget
+        import zipfile
+        
         print(f"No model parameters found in {params_dir}!")
         online_name = os.path.basename(statedict_online)
         target_path = os.path.join(params_dir, online_name)
         os.makedirs(params_dir, exist_ok=True)
+
         print("Downloading", online_name, "to", target_path)
         wget.download(statedict_online, target_path)
+
         print("Extracting statedict from zip file...")
         with zipfile.ZipFile(target_path, "r") as zip_ref:
             zip_ref.extractall(params_dir)
@@ -90,6 +94,7 @@ def load_model_parameters(
         # now file should exist
         assert os.path.exists(pt_path), "Should never happen!"
         statedict = torch.load(pt_path)
+
     except Exception as e:
         print("Error encountered while downloading statedict!")
         print(e)

@@ -290,7 +290,7 @@ def swap_face_only( face_image,
             controlnet=controlnet,
             torch_dtype=dtype,
             use_safetensors=True if sdxl_ckpt_path.endswith(".safetensors") else False,
-        )
+        ).to(device)
 
     else:
         pipe = SdXlInstantIdPipeline.from_pretrained(
@@ -300,7 +300,7 @@ def swap_face_only( face_image,
             safety_checker=None,
             feature_extractor=None,
         ).to(device)
-        
+
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
     print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path} ...")
