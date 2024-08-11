@@ -491,8 +491,8 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
             and denoising_start >= denoising_end
         ):
             raise ValueError(
-                f"`denoising_start`: {denoising_start} cannot be larger than or equal to `denoising_end`: "
-                + f" {denoising_end} when using type float."
+                f"`denoising_start`: {denoising_start} cannot be larger than or equal to "
+              + f"`denoising_end`:  {denoising_end} when using type float."
             )
 
         elif denoising_end is not None and denoising_value_valid(denoising_end):
@@ -514,7 +514,10 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
                 # concat latents, mask, masked_image_latents in the channel dimension
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
-                added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
+                added_cond_kwargs = {
+                    "text_embeds": add_text_embeds, 
+                       "time_ids": add_time_ids,
+                }
 
                 # controlnet(s) inference
                 if guess_mode and self.do_classifier_free_guidance:
@@ -537,7 +540,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
                         controlnet_cond_scale = controlnet_cond_scale[0]
                     cond_scale = controlnet_cond_scale * controlnet_keep[i]
 
-                # # Resize control_image to match the size of the input to the controlnet
+                # Resize control_image to match the size of the input to the controlnet
                 # if control_image.shape[-2:] != control_model_input.shape[-2:]:
                 #     control_image = F.interpolate(control_image, size=control_model_input.shape[-2:], mode="bilinear", align_corners=False)
 
@@ -625,46 +628,42 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
 
         # Format output
         if not output_type == "latent":
-            print('\n\tUpcasting ...')
 
             # make sure the VAE is in float32 mode, as it overflows in float16
             needs_upcasting = self.vae.dtype == torch.float16 and self.vae.config.force_upcast
-
             if needs_upcasting:
+                print('\n\tUpcasting ...')
                 self.upcast_vae()
                 latents = latents.to(next(iter(self.vae.post_quant_conv.parameters())).dtype)
 
-            # unscale/denormalize the latents
+            # unscale / denormalize the latents
             # denormalize with the mean and std if available and not None
+            print('\n\tDe-normalizing ...')
             has_latents_mean = hasattr(self.vae.config, "latents_mean") and self.vae.config.latents_mean is not None
             has_latents_std = hasattr(self.vae.config, "latents_std") and self.vae.config.latents_std is not None
             if has_latents_mean and has_latents_std:
-                latents_mean = (
-                    torch.tensor(self.vae.config.latents_mean).view(1, 4, 1, 1).to(latents.device, latents.dtype)
-                )
-                latents_std = (
-                    torch.tensor(self.vae.config.latents_std).view(1, 4, 1, 1).to(latents.device, latents.dtype)
-                )
+                latents_mean = torch.tensor(self.vae.config.latents_mean).view(1, 4, 1, 1).to(latents.device, latents.dtype)
+                latents_std = torch.tensor(self.vae.config.latents_std).view(1, 4, 1, 1).to(latents.device, latents.dtype)
                 latents = latents * latents_std / self.vae.config.scaling_factor + latents_mean
             else:
                 latents = latents / self.vae.config.scaling_factor
 
             print('\n\tDecoding ...')
-            image = self.vae.decode(latents, return_dict=False)[0]
+            out_image = self.vae.decode(latents, return_dict=False)[0]
 
             # cast back to fp16 if needed
             if needs_upcasting:
                 self.vae.to(dtype=torch.float16)
         else:
-            image = latents
+            out_image = latents
 
         if not output_type == "latent":
             # apply watermark if available
             if self.watermark is not None:
-                image = self.watermark.apply_watermark(image)
+                out_image = self.watermark.apply_watermark(out_image)
 
             print('\n\tPostprocessing ...')
-            image = self.image_processor.postprocess(image, output_type=output_type)
+            out_image = self.image_processor.postprocess(out_image, output_type=output_type)
 
         # Offload all parameters
         print('\n\tOffloading all parameters ...')
@@ -672,6 +671,6 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
 
         print('\n\tReturning outputs ...')
         if not return_dict:
-            return (image,)
-        return SdXLPipelineOutput(images=image)
+            return (out_image,)
+        return SdXLPipelineOutput(images=out_image)
 

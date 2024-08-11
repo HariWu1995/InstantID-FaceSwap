@@ -264,7 +264,7 @@ def generate_image( face_image,
     print("\nInferencing ...")
     print(f"\t[Debug] Prompt: {prompt}, \n\t[Debug] Neg Prompt: {negative_prompt}")
     
-    images = pipe(
+    generated_images = pipe(
                            prompt = prompt,
                   negative_prompt = negative_prompt,
                      image_embeds = face_emb,
@@ -283,7 +283,7 @@ def generate_image( face_image,
     if str(device).__contains__("cuda"):
         torch.cuda.empty_cache()
 
-    return images[0]
+    return generated_images[0]
 
 
 

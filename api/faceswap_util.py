@@ -218,7 +218,7 @@ def swap_face_only( face_image,
     left, right = max(0, int(left-mask_padding_W)), min(width, int(right+mask_padding_W))
     top, bottom = max(0, int(top-mask_padding_H)), min(width, int(bottom+mask_padding_H))
     pose_image_face = pose_image.crop((left, top, right, bottom))
-    # pose_image_face.save('bbox.png')
+    pose_image_face.save('bbox.png')
     
     # Automatic segmentation for face mask
     print("\nSegmenting inside bounding-box ...")
@@ -230,7 +230,7 @@ def swap_face_only( face_image,
     bbox_mask = (mask > mask_threshold).astype(np.uint8)
     face_mask = np.zeros(pose_image_arr.shape[:2], np.uint8)
     face_mask[top:bottom, left:right] = bbox_mask
-    # cv2.imwrite('segment.png', face_mask * 255)
+    cv2.imwrite('segment.png', face_mask * 255)
 
     # Noise removal
     print("\nRemoving noise in face mask ...")
@@ -246,7 +246,7 @@ def swap_face_only( face_image,
     contour = max(contours, key=cv2.contourArea)
     border = cv2.convexHull(contour, False)
     cv2.drawContours(temp_mask, [border], 0, 1, -1)
-    # cv2.imwrite('contour.png', temp_mask * 255)
+    cv2.imwrite('contour.png', temp_mask * 255)
 
     # Smoothing & padding mask
     print("\nPadding mask ...")
@@ -356,7 +356,7 @@ def swap_face_only( face_image,
 
     # Inference
     print("\nInferencing ...")
-    images = pipe(
+    generated_images = pipe(
                            height = height,
                             width = width,
                             image = pose_image,
@@ -378,7 +378,7 @@ def swap_face_only( face_image,
     if str(device).__contains__("cuda"):
         torch.cuda.empty_cache()
 
-    return images[0]
+    return generated_images[0]
 
 
 
