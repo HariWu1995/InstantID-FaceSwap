@@ -9,6 +9,7 @@ DESCRIPTION:
   overview: API for FaceSwap using SDXL + Instant-ID
 
 PARAMETERS:
+  face_segmentor_dir: Path to Face-Segmentation Model
   face_analyzer_dir: Path to InsightFace Analyzer
   face_adapter_path: Path to Instant-ID Adapter
   controlnet_path: Path to Instant-ID Controlnet
@@ -18,9 +19,14 @@ PARAMETERS:
 
   face_image: "Image of face"
   pose_image: "Image of human pose to swap face with 'face_image'"
+
+  mask_padding_W: Padding into face-mask, in width. Should be larger to cover the ears.
+  mask_padding_H: Padding into face-mask, in height
+
   style_name: "Style to be applied in prompt formatting"
   prompt_positive: "Description of what you desire to have in output"
   prompt_negative: "Description of what you desire NOT to have in output"
+  
   num_steps: "Number of denosing steps.\nShould be 5 if LCM is enabled, else 30.\nDefault = 5"
   guidance_scale: "Parameter that controls how much the generation follows the prompt.\nShould be 0 if LCM is enabled, else 5.\nDefault = 0."
   seed: "Random seed"

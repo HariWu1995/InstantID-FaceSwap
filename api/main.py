@@ -33,6 +33,7 @@ STYLE_NAMES = tuple(STYLE_NAMES)
 
 # Model Config
 MODEL_CONFIG = dict(
+    face_segmentor_dir = './checkpoints',
     face_analyzer_dir = './',
     face_adapter_path = './checkpoints/ip-adapter.bin',
     controlnet_path = './checkpoints/ControlNetModel',
@@ -83,22 +84,22 @@ async def redirect():
 
 @app.post("/config")
 async def config(
-    face_analyzer_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
-    face_adapter_path : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_path'], default=MODEL_CONFIG['face_adapter_path']), 
-    controlnet_path   : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
-    sdxl_ckpt_path    : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
-    lora_ckpt_path    : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
-     sam_ckpt_path    : str = Form(description=API_CONFIG['PARAMETERS']['sam_ckpt_path'], default=MODEL_CONFIG['sam_ckpt_path']), 
+    face_segmentor_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_segmentor_dir'], default=MODEL_CONFIG['face_segmentor_dir']), 
+    face_analyzer_dir  : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
+    face_adapter_path  : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_path'], default=MODEL_CONFIG['face_adapter_path']), 
+    controlnet_path    : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
+    sdxl_ckpt_path     : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
+    lora_ckpt_path     : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
 ):
     try:
         global MODEL_CONFIG
         MODEL_CONFIG.update(dict(
+            face_segmentor_dir = face_segmentor_dir,
             face_analyzer_dir = face_analyzer_dir,
             face_adapter_path = face_adapter_path,
             controlnet_path = controlnet_path,
             sdxl_ckpt_path = sdxl_ckpt_path,
             lora_ckpt_path = lora_ckpt_path,
-             sam_ckpt_path =  sam_ckpt_path,
         ))
         response = API_RESPONDER.result(is_successful=True, data=MODEL_CONFIG)
 
@@ -222,19 +223,21 @@ async def generate(
 
 @app.post("/faceswap")
 async def faceswap(
-         face_image: UploadFile = \
-                           File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
-         pose_image: UploadFile = \
-                           File(description=API_CONFIG['PARAMETERS']['pose_image'], media_type='multipart/form-data'),
-         style_name: Literal[STYLE_NAMES] = \
-                           Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
-             prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
-    negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
-          num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
-     guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
-               seed: int = Form(description=API_CONFIG['PARAMETERS']['seed'], default=3_3_2023), 
-         enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=True), 
-       enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=True),
+          face_image: UploadFile = \
+                            File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
+          pose_image: UploadFile = \
+                            File(description=API_CONFIG['PARAMETERS']['pose_image'], media_type='multipart/form-data'),
+          style_name: Literal[STYLE_NAMES] = \
+                            Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
+      mask_padding_W: int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=49), 
+      mask_padding_H: int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=27), 
+              prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
+     negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
+           num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
+      guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
+                seed: int = Form(description=API_CONFIG['PARAMETERS']['seed'], default=3_3_2023), 
+          enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=True), 
+        enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=True),
     strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
     strength_identitynet: float = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
 ):
@@ -257,6 +260,8 @@ async def faceswap(
         generated_image = swap_face_only(
                                 face_image = face_image, 
                                 pose_image = pose_image, 
+                            mask_padding_W = mask_padding_W,
+                            mask_padding_H = mask_padding_H,
                                     prompt = prompt, 
                            negative_prompt = negative_prompt, 
                                 style_name = style_name, 

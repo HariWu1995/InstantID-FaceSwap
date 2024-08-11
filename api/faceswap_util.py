@@ -25,8 +25,9 @@ from huggingface_hub import hf_hub_download
 import insightface
 from insightface.app import FaceAnalysis
 
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
+# from sam2.build_sam import build_sam2
+# from sam2.sam2_image_predictor import SAM2ImagePredictor
+import face_segmentation as FaceSeg
 
 from api.model_util import load_models_xl, get_torch_device, torch_gc
 from api.style_template import styles
@@ -114,6 +115,33 @@ def resize_img(input_image, max_side=1280, min_side=1024, size=None,
     return input_image
 
 
+def visualize_face_mask_and_keypoints(face_image: PIL.Image, 
+                                      face_mask: np.ndarray = None, 
+                                      face_keypts: np.ndarray = None):
+
+    if face_mask is not None:
+        face_mask = Image.fromarray(face_mask * 255, mode='L')
+        overlay = Image.new('RGBA', face_image.size, (255, 255, 255, 0))
+        drawing = ImageDraw.Draw(overlay)
+        drawing.bitmap((0, 0), face_mask, fill=(255, 0, 0, 100))
+
+        face_image = face_image.convert('RGBA')
+        face_image.putalpha(200)
+        face_image = Image.alpha_composite(face_image, overlay)
+
+    if face_keypts is not None:
+        font = ImageFont.truetype(r"C:\Windows\Fonts\comic.ttf", 19)
+        drawing = ImageDraw.Draw(face_image)
+        for pi, pt in enumerate(face_keypts.tolist()):
+            # print(pi, pt)
+            pt = np.array(pt)
+            pt_ = tuple(list(pt-3) + list(pt+3))
+            drawing.ellipse(xy=pt_, fill=(0, 0, 255), outline=(255, 255, 255), width=1)
+            drawing.text(list(pt), str(pi+1), font=font, align ="right")
+
+    return face_image
+
+
 def apply_style(style_name: str, positive: str, negative: str = "") -> Tuple[str, str]:
     p, n = styles.get(style_name, styles[STYLE_DEFAULT])
     return p.replace("{prompt}", positive), n + ' ' + negative
@@ -121,6 +149,8 @@ def apply_style(style_name: str, positive: str, negative: str = "") -> Tuple[str
 
 def swap_face_only( face_image, 
                     pose_image, 
+                mask_padding_W,
+                mask_padding_H,
                         prompt, 
                negative_prompt, 
                     style_name, 
@@ -133,6 +163,7 @@ def swap_face_only( face_image,
            enhance_face_region, MODEL_CONFIG):
 
     # Re-load Model every query, to save memory
+    face_segmentor_dir = MODEL_CONFIG.get('face_segmentor_dir', './checkpoints')
     face_analyzer_dir = MODEL_CONFIG.get('face_analyzer_dir', './')
     face_adapter_path = MODEL_CONFIG.get('face_adapter_path', './checkpoints/ip-adapter.bin')
     controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
@@ -144,7 +175,6 @@ def swap_face_only( face_image,
     # face_image = load_image(face_image_path)
     face_image = resize_img(face_image)
     face_image_arr = convert_from_image_to_cv2(face_image)
-    height, width, _ = face_image_arr.shape
     
     # pose_image = load_image(pose_image_path)
     pose_image = resize_img(pose_image)
@@ -176,43 +206,31 @@ def swap_face_only( face_image,
     face_kps = draw_kps(pose_image, face_info['kps'])
     width, height = face_kps.size
 
-    # Load Segment-Anything-Model
-    print(f"\nLoading SAM @ {sam_ckpt_path} ...")
-    sam_model = build_sam2(sam_ckpt_path.replace('.pt','.yaml'), 
-                           sam_ckpt_path, device=device)
-    segmentor = SAM2ImagePredictor(sam_model)
+    # Load Face-Segmentation Model
+    print(f"\nLoading Face-Segmentation @ {face_segmentor_dir} ...")
+    face_segmentor = FaceSeg.model.FaceSegmentationNet()
+    FaceSeg.utils.load_model_parameters(face_segmentor, params_dir=face_segmentor_dir)
+    face_segmentor.eval()
+    face_segmentor.to(device)
 
-    # Automatic segmentation for face mask
-    face_bbox = np.array([face_info['bbox']])
-    face_w = face_bbox[2] - face_bbox[0]
-    face_kpts = face_info['landmark_2d_106'][33:] # ignore face-contour
-    face_kpts = list(face_kpts)
-    face_kpts.extend([
-        # Add points of ears
-        face_info['landmark_2d_106'][12] - np.array([5, 0]),
-        face_info['landmark_2d_106'][28] + np.array([5, 0]),
-
-        # Add points of forehead
-        face_info['landmark_2d_106'][ 50] - np.array([0, 10]),
-        face_info['landmark_2d_106'][105] - np.array([0, 10]),
-    ])
-    noface_kpts = [
-        # Ignore points of neck
-        face_info['landmark_2d_106'][i] + np.array([0, 5])
-                                 for i in [0] + list(range(2, 9)) + list(range(18, 25))
-    ]
-    face_labels = np.array([1] * len(face_kpts) + [0] * len(noface_kpts))
-    face_kpts = np.array(face_kpts + noface_kpts)
+    face_bbox = face_info['bbox']
+    left, top, right, bottom = face_bbox
+    left, right = max(0, int(left-mask_padding_W)), min(width, int(right+mask_padding_W))
+    top, bottom = max(0, int(top-mask_padding_H)), min(width, int(bottom+mask_padding_H))
+    pose_image_face = pose_image.crop((left, top, right, bottom))
+    # pose_image_face.save('bbox.png')
     
+    # Automatic segmentation for face mask
     print("\nSegmenting inside bounding-box ...")
-    with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-        segmentor.set_image(pose_image_arr)
-        masks, _, _ = segmentor.predict( box = face_bbox,
-                                point_coords = face_kpts,
-                                point_labels = face_labels,
-                            multimask_output = False,)
-    face_mask = (masks[0] > 0.333).astype(np.uint8)
-    cv2.imwrite('segment.png', face_mask * 255)
+    with torch.no_grad():
+        pose_image_face = face_segmentor.prepare(pose_image_face, pre_normalize=True).unsqueeze(0)
+        pose_image_face = pose_image_face.to(device)
+        mask = face_segmentor(pose_image_face, as_pmap=True).detach().cpu().numpy()[0]
+    
+    bbox_mask = (mask > 0.333).astype(np.uint8)
+    face_mask = np.zeros(pose_image_arr.shape[:2], np.uint8)
+    face_mask[top:bottom, left:right] = bbox_mask
+    # cv2.imwrite('segment.png', face_mask * 255)
 
     # Noise removal
     print("\nRemoving noise in face mask ...")
@@ -228,40 +246,25 @@ def swap_face_only( face_image,
     contour = max(contours, key=cv2.contourArea)
     border = cv2.convexHull(contour, False)
     cv2.drawContours(temp_mask, [border], 0, 1, -1)
-    cv2.imwrite('contour.png', temp_mask * 255)
+    # cv2.imwrite('contour.png', temp_mask * 255)
 
     # Smoothing & padding mask
-    print("\nPadding ...")
-    kernel = np.ones((3, 3), np.uint8) 
+    print("\nPadding mask ...")
+    kernel = np.ones((mask_padding_H, mask_padding_W), np.uint8) 
     face_mask = cv2.medianBlur(temp_mask, 19)
-    face_mask = cv2.dilate(face_mask, kernel, iterations=11)
+    face_mask = cv2.dilate(face_mask, kernel, iterations=1)
 
+    return visualize_face_mask_and_keypoints(pose_image, 
+                                             face_mask, 
+                                             face_info['landmark_2d_106'], )
+
+    # Remove face analyzer & segmentor to save memory
+    del face_analyzer, face_segmentor
+
+    # Extend 1-channel mask to 3-channel image
     # face_mask = np.tile(face_mask, (3, 1, 1))
     # face_mask = np.swapaxes(face_mask, 1, 2)
     # face_mask = np.swapaxes(face_mask, 0, 2)
-
-    face_mask = Image.fromarray(face_mask * 255, mode='L')
-    overlay = Image.new('RGBA', pose_image.size, (255, 255, 255, 0))
-    drawing = ImageDraw.Draw(overlay)
-    drawing.bitmap((0, 0), face_mask, fill=(255, 0, 0, 100))
-
-    pose_image = pose_image.convert('RGBA')
-    pose_image.putalpha(200)
-    image = Image.alpha_composite(pose_image, overlay)
-
-    font = ImageFont.truetype(r"C:\Users\Mr. RIAH\Documents\Spiritual\LaSoTuVi\LaSoTuVi\assets\flutter_assets\assets\fonts\Roboto_Condensed\RobotoCondensed-Light.ttf", 19)
-    drawing = ImageDraw.Draw(image)
-    for pi, pt in enumerate(face_info['landmark_2d_106'].tolist()):
-        # print(pi, pt)
-        pt = np.array(pt)
-        pt_ = tuple(list(pt-3) + list(pt+3))
-        drawing.ellipse(xy=pt_, fill=(0, 0, 255), outline=(255, 255, 255), width=1)
-        drawing.text(list(pt), str(pi+1), font=font, align ="right")  
-
-    return image
-
-    # Remove face detector & segmentor to save memory
-    del face_analyzer, segmentor
 
     if enhance_face_region:
         print("\nEnhancing face ...")
