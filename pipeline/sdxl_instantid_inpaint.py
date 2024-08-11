@@ -209,7 +209,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
 
         # IP adapter
         ip_adapter_scale=None,
-        control_mask = None,
+        control_mask=None,
 
         # Others
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,

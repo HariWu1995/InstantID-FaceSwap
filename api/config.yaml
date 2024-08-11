@@ -20,8 +20,9 @@ PARAMETERS:
   face_image: "Image of face"
   pose_image: "Image of human pose to swap face with 'face_image'"
 
-  mask_padding_W: Padding into face-mask, in width. Should be larger to cover the ears.
-  mask_padding_H: Padding into face-mask, in height
+  mask_padding_W: "Padding into face-mask, in width. \nShould be larger to cover the ears.""
+  mask_padding_H: "Padding into face-mask, in height."
+  mask_threshold: "Threshold to auto-segment face. \nShould be low in hard condition."
 
   style_name: "Style to be applied in prompt formatting"
   prompt_positive: "Description of what you desire to have in output"

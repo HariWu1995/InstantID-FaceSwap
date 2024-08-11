@@ -151,6 +151,7 @@ def swap_face_only( face_image,
                     pose_image, 
                 mask_padding_W,
                 mask_padding_H,
+                mask_threshold,
                         prompt, 
                negative_prompt, 
                     style_name, 
@@ -159,8 +160,7 @@ def swap_face_only( face_image,
         adapter_strength_ratio, 
                 guidance_scale, 
                           seed, 
-                    enable_LCM, 
-           enhance_face_region, MODEL_CONFIG):
+                    enable_LCM, MODEL_CONFIG):
 
     # Re-load Model every query, to save memory
     face_segmentor_dir = MODEL_CONFIG.get('face_segmentor_dir', './checkpoints')
@@ -169,7 +169,7 @@ def swap_face_only( face_image,
     controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
     lora_ckpt_path = MODEL_CONFIG.get('lora_ckpt_path', 'latent-consistency/lcm-lora-sdxl')
-    sam_ckpt_path = MODEL_CONFIG.get('sam_ckpt_path', './checkpoints/sam2_hiera_small.pt')
+    # sam_ckpt_path = MODEL_CONFIG.get('sam_ckpt_path', './checkpoints/sam2_hiera_small.pt')
     
     # Preprocess face
     # face_image = load_image(face_image_path)
@@ -194,7 +194,6 @@ def swap_face_only( face_image,
         raise ValueError(f"Cannot find any face in the targeted image! Please upload another person image")
     
     face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]  # only use the maximum face
-    face_kps = draw_kps(face_image, face_info['kps'])
     face_emb = face_info['embedding']
     
     print("\nExtracting referenced face features ...")
@@ -227,7 +226,7 @@ def swap_face_only( face_image,
         pose_image_face = pose_image_face.to(device)
         mask = face_segmentor(pose_image_face, as_pmap=True).detach().cpu().numpy()[0]
     
-    bbox_mask = (mask > 0.333).astype(np.uint8)
+    bbox_mask = (mask > mask_threshold).astype(np.uint8)
     face_mask = np.zeros(pose_image_arr.shape[:2], np.uint8)
     face_mask[top:bottom, left:right] = bbox_mask
     # cv2.imwrite('segment.png', face_mask * 255)
@@ -254,9 +253,9 @@ def swap_face_only( face_image,
     face_mask = cv2.medianBlur(temp_mask, 19)
     face_mask = cv2.dilate(face_mask, kernel, iterations=1)
 
-    return visualize_face_mask_and_keypoints(pose_image, 
-                                             face_mask, 
-                                             face_info['landmark_2d_106'], )
+    # return visualize_face_mask_and_keypoints(pose_image, 
+    #                                          face_mask, 
+    #                                          face_info['landmark_2d_106'], )
 
     # Remove face analyzer & segmentor to save memory
     del face_analyzer, face_segmentor
@@ -265,6 +264,7 @@ def swap_face_only( face_image,
     # face_mask = np.tile(face_mask, (3, 1, 1))
     # face_mask = np.swapaxes(face_mask, 1, 2)
     # face_mask = np.swapaxes(face_mask, 0, 2)
+    face_mask = Image.fromarray(face_mask.astype(np.uint8))
 
     if enhance_face_region:
         print("\nEnhancing face ...")
@@ -351,21 +351,24 @@ def swap_face_only( face_image,
     
     # apply the style template
     prompt, negative_prompt = apply_style(style_name, prompt, negative_prompt)
+    print(f"\tPositive Prompt: {prompt}, \n\tNegative Prompt: {negative_prompt}")
 
+    # Inference
     print("\nInferencing ...")
-    print(f"\t[Debug] Prompt: {prompt}, \n\t[Debug] Neg Prompt: {negative_prompt}")
-    
     images = pipe(
+                           height = height,
+                            width = width,
+                            image = pose_image,
+                     image_embeds = face_emb,
+                       mask_image = face_mask,
+                    control_image = face_kps,
+                     control_mask = control_mask,
+
                            prompt = prompt,
                   negative_prompt = negative_prompt,
-                     image_embeds = face_emb,
-                            image = face_kps,
-                     control_mask = control_mask,
     controlnet_conditioning_scale = float(identitynet_strength_ratio),
               num_inference_steps = num_steps,
                    guidance_scale = guidance_scale,
-                           height = height,
-                            width = width,
                         generator = torch.Generator(device=device).manual_seed(seed),
     ).images
 
