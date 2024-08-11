@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import cv2
@@ -23,21 +22,14 @@ import PIL.Image
 import torch
 import torch.nn.functional as F
 
-from diffusers.image_processor import PipelineImageInput
-
-from diffusers.models import ControlNetModel
-
-from diffusers.utils import (
-    deprecate,
-    logging,
-    replace_example_docstring,
-)
-from diffusers.utils.torch_utils import is_compiled_module, is_torch_version
-from diffusers.pipelines.stable_diffusion_xl import StableDiffusionXLPipelineOutput
-
 from diffusers import StableDiffusionXLControlNetPipeline
-from diffusers.pipelines.controlnet.multicontrolnet import MultiControlNetModel
+from diffusers.image_processor import PipelineImageInput
+from diffusers.models import ControlNetModel
+from diffusers.utils import deprecate, logging, replace_example_docstring
 from diffusers.utils.import_utils import is_xformers_available
+from diffusers.utils.torch_utils import is_compiled_module, is_torch_version
+from diffusers.pipelines.stable_diffusion_xl import StableDiffusionXLPipelineOutput as SdXLPipelineOutput
+from diffusers.pipelines.controlnet.multicontrolnet import MultiControlNetModel
 
 from ip_adapter.resampler import Resampler
 from ip_adapter.utils import is_torch2_available
@@ -1217,7 +1209,8 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
                     if callback is not None and i % callback_steps == 0:
                         step_idx = i // getattr(self.scheduler, "order", 1)
                         callback(step_idx, t, latents)
-        
+
+        # Format output
         if not output_type == "latent":
             print('\n\tUpcasting ...')
 
@@ -1267,4 +1260,4 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         print('\n\tReturning outputs ...')
         if not return_dict:
             return (image,)
-        return StableDiffusionXLPipelineOutput(images=image)
+        return SdXLPipelineOutput(images=image)
