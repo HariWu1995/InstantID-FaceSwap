@@ -282,32 +282,15 @@ def swap_face_only( face_image,
     controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=dtype)
 
     print(f"\nLoading SD-XL Instant-Id Pipeline @ {sdxl_ckpt_path} ...")
-    if sdxl_ckpt_path.endswith(".ckpt") \
+    if sdxl_ckpt_path.endswith(".pt") \
     or sdxl_ckpt_path.endswith(".safetensors"):
 
-        scheduler_kwargs = hf_hub_download(
-            repo_id="wangqixun/YamerMIX_v8",
-            subfolder="scheduler",
-            filename="scheduler_config.json",
-        )
-        scheduler = diffusers.EulerDiscreteScheduler.from_config(scheduler_kwargs)
-
-        (tokenizers, text_encoders, unet, _, vae) = load_models_xl(
-            pretrained_model_name_or_path=sdxl_ckpt_path,
-            scheduler_name=None,
-            weight_dtype=dtype,
-        )
-
-        pipe = SdXlInstantIdPipeline(
-            vae=vae,
-            unet=unet,
-            text_encoder=text_encoders[0],
-            text_encoder_2=text_encoders[1],
-            tokenizer=tokenizers[0],
-            tokenizer_2=tokenizers[1],
-            scheduler=scheduler,
+        pipe = SdXlInstantIdPipeline.from_single_file(
+            sdxl_ckpt_path,
             controlnet=controlnet,
-        ).to(device)
+            torch_dtype=dtype,
+            use_safetensors=True if sdxl_ckpt_path.endswith(".safetensors") else False,
+        )
 
     else:
         pipe = SdXlInstantIdPipeline.from_pretrained(
@@ -317,7 +300,7 @@ def swap_face_only( face_image,
             safety_checker=None,
             feature_extractor=None,
         ).to(device)
-
+        
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
     print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path} ...")

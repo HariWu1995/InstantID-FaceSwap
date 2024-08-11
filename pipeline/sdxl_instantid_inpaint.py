@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from diffusers import StableDiffusionXLControlNetInpaintPipeline
+from diffusers import StableDiffusionXLControlNetInpaintPipeline as SdXLControlNetInpaintPipeline
 from diffusers.utils import deprecate, logging
 from diffusers.utils.torch_utils import is_compiled_module
 from diffusers.image_processor import PipelineImageInput
@@ -73,7 +73,7 @@ def draw_kps(image_pil, kps, color_list=[(255,0,0), (0,255,0), (0,0,255), (255,2
     return out_img_pil
 
 
-class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpaintPipeline):
+class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
 
     def load_ip_adapter_instantid(self, model_ckpt, image_emb_dim=512, num_tokens=16, scale=0.5):
         self.set_image_proj_model(model_ckpt, image_emb_dim, num_tokens)
@@ -510,8 +510,6 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
 
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
-
-                # concat latents, mask, masked_image_latents in the channel dimension
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
                 added_cond_kwargs = {
@@ -545,7 +543,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
                 #     control_image = F.interpolate(control_image, size=control_model_input.shape[-2:], mode="bilinear", align_corners=False)
 
                 down_block_res_samples, \
-                 mid_block_res_sample = self.controlnet(
+                 mid_block_res_sample = controlnet(
                                             control_model_input,
                                             t,
                                             encoder_hidden_states=prompt_image_emb,
@@ -595,6 +593,9 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
 
+                #####################
+                #   Inpaint Code    #
+                #####################
                 init_latents_proper = image_latents
                 if self.do_classifier_free_guidance:
                     init_mask, _ = mask.chunk(2)
@@ -608,7 +609,11 @@ class StableDiffusionXLInstantIDInpaintPipeline(StableDiffusionXLControlNetInpai
                     )
 
                 latents = (1 - init_mask) * init_latents_proper + init_mask * latents
+                #####################
+                #      End Code     #
+                #####################
 
+                # Callback(s)
                 if callback_on_step_end is not None:
                     callback_kwargs = {}
                     for k in callback_on_step_end_tensor_inputs:
