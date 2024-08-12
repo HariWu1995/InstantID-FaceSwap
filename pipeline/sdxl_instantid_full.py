@@ -648,7 +648,6 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         # Settings
         num_inference_steps: int = 50,
         guidance_scale: float = 5.0,
-        num_images_per_prompt: Optional[int] = 1,
         eta: float = 0.0,
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
         controlnet_conditioning_scale: Union[float, List[float]] = 1.0,
@@ -656,8 +655,6 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
         control_guidance_start: Union[float, List[float]] = 0.0,
         control_guidance_end: Union[float, List[float]] = 1.0,
         clip_skip: Optional[int] = None,
-        callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
-        callback_on_step_end_tensor_inputs: List[str] = ["latents"],
 
         # Outputs
         output_type: Optional[str] = "pil",
@@ -665,9 +662,12 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
 
         # Controlnet
         ip_adapter_scale=None,
-        control_mask = None,
+        control_mask=None,
 
         # Others
+        num_images_per_prompt: Optional[int] = 1,
+        callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
+        callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         latents: Optional[torch.FloatTensor] = None,
 
@@ -885,9 +885,9 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
             controlnet_conditioning_scale = [controlnet_conditioning_scale] * len(controlnet.nets)
 
         global_pool_conditions = (
-            controlnet.config.global_pool_conditions
+                          controlnet.config.global_pool_conditions 
             if isinstance(controlnet, ControlNetModel)
-            else controlnet.nets[0].config.global_pool_conditions
+                     else controlnet.nets[0].config.global_pool_conditions
         )
         guess_mode = guess_mode or global_pool_conditions
 
@@ -1066,17 +1066,21 @@ class StableDiffusionXLInstantIDPipeline(StableDiffusionXLControlNetPipeline):
 
         # 8. Denoising loop
         print('\n\tDenoising ...')
-        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
-        is_unet_compiled = is_compiled_module(self.unet)
+        is_unet_compiled       = is_compiled_module(self.unet)
         is_controlnet_compiled = is_compiled_module(self.controlnet)
         is_torch_higher_equal_2_1 = is_torch_version(">=", "2.1")
 
+        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         with self.progress_bar(total=num_inference_steps) as progress_bar:
 
             for i, t in enumerate(timesteps):
                 # Relevant thread:
                 #   https://dev-discuss.pytorch.org/t/cudagraphs-in-pytorch-2-0/1428
-                if (is_unet_compiled and is_controlnet_compiled) and is_torch_higher_equal_2_1:
+                if (
+                          is_unet_compiled 
+                and is_controlnet_compiled
+                and is_torch_higher_equal_2_1
+                ):
                     torch._inductor.cudagraph_mark_step_begin()
 
                 # expand the latents if we are doing classifier free guidance

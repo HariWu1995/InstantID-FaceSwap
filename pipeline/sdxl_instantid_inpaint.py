@@ -32,8 +32,9 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.rescale_noise_cfg
 def rescale_noise_cfg(noise_cfg, noise_pred_text, guidance_rescale=0.0):
     """
-    Rescale `noise_cfg` according to `guidance_rescale`. Based on findings of [Common Diffusion Noise Schedules and
-    Sample Steps are Flawed](https://arxiv.org/pdf/2305.08891.pdf). See Section 3.4
+    Rescale `noise_cfg` according to `guidance_rescale`. 
+    See Section 3.4 of 
+        [Common Diffusion Noise Schedules and Sample Steps are Flawed](https://arxiv.org/pdf/2305.08891.pdf).
     """
     std_text = noise_pred_text.std(dim=list(range(1, noise_pred_text.ndim)), keepdim=True)
     std_cfg = noise_cfg.std(dim=list(range(1, noise_cfg.ndim)), keepdim=True)
@@ -192,21 +193,18 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         strength: float = 0.9999,
         num_inference_steps: int = 50,
         guidance_scale: float = 5.0,
-        num_images_per_prompt: Optional[int] = 1,
+        guidance_rescale: float = 0.0,
         eta: float = 0.0,
         denoising_start: Optional[float] = None,
         denoising_end: Optional[float] = None,
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        controlnet_conditioning_scale: Union[float, List[float]] = 1.0,
         guess_mode: bool = False,
+        controlnet_conditioning_scale: Union[float, List[float]] = 1.0,
         control_guidance_start: Union[float, List[float]] = 0.0,
         control_guidance_end: Union[float, List[float]] = 1.0,
-        aesthetic_score: float = 6.0,
+                 aesthetic_score: float = 6.0,
         negative_aesthetic_score: float = 2.5,
-        guidance_rescale: float = 0.0,
         clip_skip: Optional[int] = None,
-        callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
-        callback_on_step_end_tensor_inputs: List[str] = ["latents"],
 
         # Controlnet
         ip_adapter_scale=None,
@@ -217,6 +215,9 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         return_dict: bool = True,
 
         # Others
+        callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
+        callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+        num_images_per_prompt: Optional[int] = 1,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         latents: Optional[torch.FloatTensor] = None,
 
@@ -275,29 +276,29 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         # 3. Encode input prompt
         print('\n\tEncoding prompt ...')
         text_encoder_lora_scale = (
-            self.cross_attention_kwargs.get("scale", None) if self.cross_attention_kwargs is not None else None
+                self.cross_attention_kwargs.get("scale", None) 
+             if self.cross_attention_kwargs is not None else None
         )
 
         (
-            prompt_embeds,
-            negative_prompt_embeds,
-            pooled_prompt_embeds,
-            negative_pooled_prompt_embeds,
-        ) = self.encode_prompt(
-            prompt=prompt,
-            prompt_2=prompt_2,
-            device=device,
-            num_images_per_prompt=num_images_per_prompt,
-            do_classifier_free_guidance=self.do_classifier_free_guidance,
-            negative_prompt=negative_prompt,
-            negative_prompt_2=negative_prompt_2,
-            prompt_embeds=prompt_embeds,
-            negative_prompt_embeds=negative_prompt_embeds,
-            pooled_prompt_embeds=pooled_prompt_embeds,
-            negative_pooled_prompt_embeds=negative_pooled_prompt_embeds,
-            lora_scale=text_encoder_lora_scale,
-            clip_skip=self.clip_skip,
-        )
+                        prompt_embeds,
+               negative_prompt_embeds,
+                 pooled_prompt_embeds,
+        negative_pooled_prompt_embeds,  ) = self.encode_prompt(
+                                         num_images_per_prompt   = num_images_per_prompt,
+                                                        prompt   =          prompt,
+                                                        prompt_2 =          prompt_2,
+                                               negative_prompt   = negative_prompt,
+                                               negative_prompt_2 = negative_prompt_2,
+                                                        prompt_embeds =          prompt_embeds,
+                                               negative_prompt_embeds = negative_prompt_embeds,
+                                                 pooled_prompt_embeds =          pooled_prompt_embeds,
+                                        negative_pooled_prompt_embeds = negative_pooled_prompt_embeds,
+                                                               device = device,
+                                          do_classifier_free_guidance = self.do_classifier_free_guidance,
+                                                            clip_skip  =self.clip_skip,
+                                                           lora_scale = text_encoder_lora_scale,
+                                        )
 
         # 4. set timesteps
         print('\n\tSetting timesteps ...')
@@ -306,7 +307,8 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
 
         self.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps, num_inference_steps = self.get_timesteps(
-            num_inference_steps, strength, device, denoising_start=denoising_start if denoising_value_valid else None
+                   num_inference_steps, strength, device, denoising_start=denoising_start 
+                                                                       if denoising_value_valid else None
         )
 
         # check that number of inference steps is not < 1 - as this doesn't make sense
@@ -319,7 +321,8 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         # at which timestep to set the initial noise (n.b. 50% if strength is 0.5)
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
-        # create a boolean to check if the strength is set to 1. if so then initialise the latents with pure noise
+        # create a boolean to check if the strength is set to 1. 
+        # if so, initialise the latents with pure noise
         is_strength_max = strength == 1.0
         self._num_timesteps = len(timesteps)
 
@@ -586,7 +589,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-                if self.do_classifier_free_guidance and guidance_rescale > 0.0:
+                if self.do_classifier_free_guidance and guidance_rescale > 0.:
                     # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
                     noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=guidance_rescale)
 

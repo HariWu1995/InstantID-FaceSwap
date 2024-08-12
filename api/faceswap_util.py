@@ -144,7 +144,51 @@ def visualize_face_mask_and_keypoints(face_image: PIL.Image,
 
 def apply_style(style_name: str, positive: str, negative: str = "") -> Tuple[str, str]:
     p, n = styles.get(style_name, styles[STYLE_DEFAULT])
-    return p.replace("{prompt}", positive), n + ' ' + negative
+    p = p.format(prompt=positive)
+    if len(negative) > 0:
+        n = n + '. ' + negative
+    return p, n
+
+
+def prepare_inputs( pose_image: PIL.Image, 
+                    mask_image: PIL.Image, 
+                     face_info: dict,
+                        resize: bool = True, 
+                       padding: Tuple[int] = (20, 20), ):
+    
+    pad_W, pad_H = padding
+    W, H = pose_image.size
+
+    # Get face bounding-box
+    mask_boundaries = np.where(mask_image != 0)
+    m_x1 = int(np.min(mask_boundaries[1]))
+    m_x2 = int(np.max(mask_boundaries[1]))
+    m_y1 = int(np.min(mask_boundaries[0]))
+    m_y2 = int(np.max(mask_boundaries[0]))
+
+    # Get portrait bounding-box (mask + padding)
+    p_x1 = max(0, m_x1 - pad_W)
+    p_y1 = max(0, m_y1 - pad_H)
+    p_x2 = min(W, m_x2 + pad_W)
+    p_y2 = min(H, m_y2 + pad_H)
+    p_x1, p_y1, p_x2, p_y2 = int(p_x1), int(p_y1), int(p_x2), int(p_y2)
+
+    # Crop
+    mask = mask_image.crop((p_x1, p_y1, p_x2, p_y2))
+    image = pose_image.crop((p_x1, p_y1, p_x2, p_y2))
+    p_W, p_H = image.size
+
+    # Resize image and keypoints
+    kps = face_info['kps'] - [p_x1, p_y1]
+    if resize:
+        mask = resize_img(mask)
+        image = resize_img(image)
+        new_W, new_H = image.size
+        kps *= [new_W / p_W, new_H / p_H]
+
+    control_image = draw_kps(image, kps)
+
+    return (mask, image, control_image), (p_x1, p_y1, p_W, p_H)
 
 
 def swap_face_only( face_image, 
@@ -170,16 +214,16 @@ def swap_face_only( face_image,
     controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
     lora_ckpt_path = MODEL_CONFIG.get('lora_ckpt_path', 'latent-consistency/lcm-lora-sdxl')
-    # sam_ckpt_path = MODEL_CONFIG.get('sam_ckpt_path', './checkpoints/sam2_hiera_small.pt')
     
     # Preprocess face
     # face_image = load_image(face_image_path)
-    face_image = resize_img(face_image)
+    # face_image = resize_img(face_image)
     face_image_arr = convert_from_image_to_cv2(face_image)
     
     # pose_image = load_image(pose_image_path)
-    pose_image = resize_img(pose_image)
+    # pose_image = resize_img(pose_image)
     pose_image_arr = convert_from_image_to_cv2(pose_image)
+    pose_width, pose_height = pose_image.size
 
     # Load face analyzer
     print(f"\nLoading Face Analyzer @ {face_analyzer_dir} ...")
@@ -202,16 +246,9 @@ def swap_face_only( face_image,
     if len(face_info) == 0:
         raise ValueError(f"Cannot find any face in the reference image! Please upload another person image")
     
-    face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*(x['bbox'][3]-x['bbox'][1]))[-1]  # only use the maximum face
-    face_kps = draw_kps(pose_image, face_info['kps'])
-    width, height = face_kps.size
-
-    # Load Face-Segmentation Model
-    print(f"\nLoading Face-Segmentation @ {face_segmentor_dir} ...")
-    face_segmentor = FaceSeg.model.FaceSegmentationNet()
-    FaceSeg.utils.load_model_parameters(face_segmentor, params_dir=face_segmentor_dir)
-    face_segmentor.eval()
-    face_segmentor.to(device)
+    face_area = lambda x: (x['bbox'][2] - x['bbox'][0]) * (x['bbox'][3] - x['bbox'][1])
+    face_info = sorted(face_info, key=face_area, reverse=True)[0]  # only use the largest face
+    # face_kps = draw_kps(pose_image, face_info['kps'])
 
     face_bbox = face_info['bbox']
     left, top, right, bottom = face_bbox
@@ -219,6 +256,13 @@ def swap_face_only( face_image,
     top, bottom = max(0, int(top-mask_padding_H)), min(width, int(bottom+mask_padding_H))
     pose_image_face = pose_image.crop((left, top, right, bottom))
     pose_image_face.save('bbox.png')
+
+    # Load Face-Segmentation Model
+    print(f"\nLoading Face-Segmentation @ {face_segmentor_dir} ...")
+    face_segmentor = FaceSeg.model.FaceSegmentationNet()
+    FaceSeg.utils.load_model_parameters(face_segmentor, params_dir=face_segmentor_dir)
+    face_segmentor.eval()
+    face_segmentor.to(device)
     
     # Automatic segmentation for face mask
     print("\nSegmenting inside bounding-box ...")
@@ -253,6 +297,7 @@ def swap_face_only( face_image,
     kernel = np.ones((mask_padding_H, mask_padding_W), np.uint8) 
     face_mask = cv2.medianBlur(temp_mask, 19)
     face_mask = cv2.dilate(face_mask, kernel, iterations=1)
+    cv2.imwrite('mask.png', face_mask * 255)
 
     # return visualize_face_mask_and_keypoints(pose_image, 
     #                                          face_mask, 
@@ -260,6 +305,23 @@ def swap_face_only( face_image,
 
     # Remove face analyzer & segmentor to save memory
     del face_analyzer, face_segmentor
+
+    # Crop portrait from pose-image
+    print("\nCropping portrait from pose-image ...")
+    portrait_images, \
+    portrait_coordinates = prepare_inputs(  pose_image, 
+                                            mask_image,
+                                            face_info, 
+                                            resize=True,
+                                            padding=(mask_padding_W*2, mask_padding_H*2,))
+    portrai_left, portrai_top, \
+    portrai_width, portrai_height = portrait_coordinates
+    portrait_mask, portrait_image, portrait_kpts = portrait_images
+    portrait_image.save('portrait.png')
+    portrait_mask.save('portrait_mask.png')
+    portrait_kpts.save('portrait_kpts.png')
+
+    face_mask = portrait_mask
 
     # Extend 1-channel mask to 3-channel image
     # face_mask = np.tile(face_mask, (3, 1, 1))
@@ -303,8 +365,9 @@ def swap_face_only( face_image,
 
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
-    print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path} ...")
+    print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path} with strength = {adapter_strength_ratio} ...")
     pipe.load_ip_adapter_instantid(face_adapter_path)
+    pipe.set_ip_adapter_scale(adapter_strength_ratio)
 
     # save VRAM
     print("\nEnabling GPU Efficient Memory ...")
@@ -327,8 +390,6 @@ def swap_face_only( face_image,
         print("\nDisabling LoRA ...")
         pipe.disable_lora()
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-
-    pipe.set_ip_adapter_scale(adapter_strength_ratio)
     
     if prompt is None:
         prompt = "a person"
@@ -338,8 +399,8 @@ def swap_face_only( face_image,
     print(f"\tPositive Prompt: {prompt}, \n\tNegative Prompt: {negative_prompt}")
 
     # Inference
-    print("\nInferencing ...")
-    generated_images = pipe(
+    print("\nGenerating new face ...")
+    generated_face = pipe(
                            height = height,
                             width = width,
                             image = pose_image,
@@ -351,17 +412,24 @@ def swap_face_only( face_image,
                            prompt = prompt,
                   negative_prompt = negative_prompt,
     controlnet_conditioning_scale = float(identitynet_strength_ratio),
+                 ip_adapter_scale = float(adapter_strength_ratio),
               num_inference_steps = num_steps,
                    guidance_scale = guidance_scale,
                         generator = torch.Generator(device=device).manual_seed(seed),
-    ).images
+    ).images[0]
 
     # Clean
     del pipe, controlnet
     if str(device).__contains__("cuda"):
         torch.cuda.empty_cache()
 
-    return generated_images[0]
+    # Paste the generated face into pose-image
+    print("\nReplacing the face in pose-image ...")
+    resized_mask = portrait_mask.resize((portrai_width, portrai_height))
+    resized_face = generated_face.resize((portrai_width, portrai_height), resample=Image.LANCZOS)
+    pose_image.paste(resized_face, (portrai_left, portrai_top), mask=resized_mask)
+
+    return pose_image
 
 
 

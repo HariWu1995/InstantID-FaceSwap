@@ -39,7 +39,7 @@ MODEL_CONFIG = dict(
     controlnet_path = './checkpoints/ControlNetModel',
     sdxl_ckpt_path = "wangqixun/YamerMIX_v8",
     lora_ckpt_path = "latent-consistency/lcm-lora-sdxl",
-     sam_ckpt_path = "./checkpoints/sam2_hiera_small.pt",
+    #sam_ckpt_path = "./checkpoints/sam2_hiera_small.pt",
 )
 
 
@@ -87,19 +87,19 @@ async def config(
     face_segmentor_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_segmentor_dir'], default=MODEL_CONFIG['face_segmentor_dir']), 
     face_analyzer_dir  : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
     face_adapter_path  : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_path'], default=MODEL_CONFIG['face_adapter_path']), 
-    controlnet_path    : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
-    sdxl_ckpt_path     : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
-    lora_ckpt_path     : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
+      controlnet_path  : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
+       sdxl_ckpt_path  : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
+       lora_ckpt_path  : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
 ):
     try:
         global MODEL_CONFIG
         MODEL_CONFIG.update(dict(
-            face_segmentor_dir = face_segmentor_dir,
+           face_segmentor_dir = face_segmentor_dir,
             face_analyzer_dir = face_analyzer_dir,
             face_adapter_path = face_adapter_path,
-            controlnet_path = controlnet_path,
-            sdxl_ckpt_path = sdxl_ckpt_path,
-            lora_ckpt_path = lora_ckpt_path,
+              controlnet_path = controlnet_path,
+               sdxl_ckpt_path = sdxl_ckpt_path,
+               lora_ckpt_path = lora_ckpt_path,
         ))
         response = API_RESPONDER.result(is_successful=True, data=MODEL_CONFIG)
 
@@ -229,6 +229,7 @@ async def faceswap(
                             File(description=API_CONFIG['PARAMETERS']['pose_image'], media_type='multipart/form-data'),
           style_name: Literal[STYLE_NAMES] = \
                             Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
+      mask_bluradius:   int = Form(description=API_CONFIG['PARAMETERS']['mask_bluradius'], default=10), 
       mask_padding_W:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=49), 
       mask_padding_H:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=27), 
       mask_threshold: float = Form(description=API_CONFIG['PARAMETERS']['mask_threshold'], default=0.49), 

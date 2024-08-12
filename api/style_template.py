@@ -6,12 +6,12 @@ style_list = [
     },
     {
         "name": "Watercolor",
-        "prompt": "watercolor painting, {prompt}. vibrant, beautiful, painterly, detailed, textural, artistic",
+        "prompt": "watercolor painting, {prompt}, vibrant, beautiful, painterly, detailed, textural, artistic",
         "negative_prompt": "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, anime, photorealistic, 35mm film, deformed, glitch, low contrast, noisy",
     },
     {
         "name": "Film Noir",
-        "prompt": "film noir style, ink sketch|vector, {prompt} highly detailed, sharp focus, ultra sharpness, monochrome, high contrast, dramatic shadows, 1940s style, mysterious, cinematic",
+        "prompt": "film noir style, ink sketch|vector, {prompt}, highly detailed, sharp focus, ultra sharpness, monochrome, high contrast, dramatic shadows, 1940s style, mysterious, cinematic",
         "negative_prompt": "(lowres, low quality, worst quality:1.2), (text:1.2), watermark, (frame:1.2), deformed, ugly, deformed eyes, blur, out of focus, blurry, deformed cat, deformed, photo, anthropomorphic cat, monochrome, photo, pet collar, gun, weapon, blue, 3d, drones, drone, buildings in background, green",
     },
     {
@@ -46,4 +46,7 @@ style_list = [
     },
 ]
 
-styles = {k["name"]: (k["prompt"], k["negative_prompt"]) for k in style_list}
+styles = {
+        k["name"]: (k["prompt"], k["negative_prompt"]) 
+    for k in style_list
+}
