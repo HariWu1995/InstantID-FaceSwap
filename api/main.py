@@ -229,7 +229,7 @@ async def faceswap(
                             File(description=API_CONFIG['PARAMETERS']['pose_image'], media_type='multipart/form-data'),
           style_name: Literal[STYLE_NAMES] = \
                             Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
-      mask_bluradius:   int = Form(description=API_CONFIG['PARAMETERS']['mask_bluradius'], default=10), 
+      mask_strength : float = Form(description=API_CONFIG['PARAMETERS']['mask_strength'], default=0.99), 
       mask_padding_W:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=49), 
       mask_padding_H:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=27), 
       mask_threshold: float = Form(description=API_CONFIG['PARAMETERS']['mask_threshold'], default=0.49), 
@@ -262,6 +262,7 @@ async def faceswap(
         generated_image = swap_face_only(
                                 face_image = face_image, 
                                 pose_image = pose_image, 
+                            mask_strength  = mask_strength,
                             mask_padding_W = mask_padding_W,
                             mask_padding_H = mask_padding_H,
                             mask_threshold = mask_threshold,
