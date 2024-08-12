@@ -166,7 +166,7 @@ async def generate(
     negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
           num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
      guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
-               seed: int = Form(description=API_CONFIG['PARAMETERS']['seed'], default=3_3_2023), 
+    generation_seed: int = Form(description=API_CONFIG['PARAMETERS']['generation_seed'], default=3_3_2023), 
          enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=True), 
        enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=True),
     strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
@@ -195,7 +195,7 @@ async def generate(
             identitynet_strength_ratio = strength_identitynet, 
              ip_adapter_strength_ratio = strength_ip_adapter, 
                         guidance_scale = guidance_scale, 
-                                  seed = seed, 
+                                  seed = generation_seed, 
                             enable_LCM = enable_LCM, 
                    enhance_face_region = enhance_face, 
                           MODEL_CONFIG = MODEL_CONFIG,
@@ -230,18 +230,19 @@ async def faceswap(
           style_name: Literal[STYLE_NAMES] = \
                             Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
       mask_strength : float = Form(description=API_CONFIG['PARAMETERS']['mask_strength'], default=0.99), 
-      mask_padding_W:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=49), 
-      mask_padding_H:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=27), 
-      mask_threshold: float = Form(description=API_CONFIG['PARAMETERS']['mask_threshold'], default=0.49), 
+      mask_padding_W:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=19), 
+      mask_padding_H:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=11), 
+      mask_threshold: float = Form(description=API_CONFIG['PARAMETERS']['mask_threshold'], default=0.33), 
               prompt:  str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
      negative_prompt:  str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
-           num_steps:  int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
-      guidance_scale:  int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
-                seed:  int = Form(description=API_CONFIG['PARAMETERS']['seed'], default=3_3_2023), 
-          enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=True), 
-        enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=True),
+      guidance_scale:  int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=5), 
+           num_steps:  int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=30), 
+     generation_seed:  int = Form(description=API_CONFIG['PARAMETERS']['generation_seed'], default=3_3_2023), 
+          enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=False), 
+        enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=False),
     strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
     strength_identitynet: float = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
+      return_output_only: bool = Form(description=API_CONFIG['PARAMETERS']['return_output_only'], default=True), 
 ):
 
     try:        
@@ -273,7 +274,7 @@ async def faceswap(
                 identitynet_strength_ratio = strength_identitynet, 
                  ip_adapter_strength_ratio = strength_ip_adapter, 
                             guidance_scale = guidance_scale, 
-                                      seed = seed, 
+                                      seed = generation_seed, 
                                 enable_LCM = enable_LCM, 
                        enhance_face_region = enhance_face, 
                               MODEL_CONFIG = MODEL_CONFIG,
@@ -281,17 +282,39 @@ async def faceswap(
 
         # Response
         print('\nResponding ...')
-        if isinstance(generated_image, np.ndarray):
-            image_in_bytes = generated_image.tobytes()
-        elif isinstance(generated_image, PIL.Image.Image):
-            image_in_bytes = BytesIO()
-            generated_image.save(image_in_bytes, format='PNG')
-            image_in_bytes = image_in_bytes.getvalue()
-        else:
-            raise TypeError(f"Type of output = {generated_image.__class__} is not supported!")
+        if return_output_only:
+            if isinstance(generated_image, np.ndarray):
+                image_in_bytes = generated_image.tobytes()
+            elif isinstance(generated_image, PIL.Image.Image):
+                image_in_bytes = BytesIO()
+                generated_image.save(image_in_bytes, format='PNG')
+                image_in_bytes = image_in_bytes.getvalue()
+            else:
+                raise TypeError(f"Type of output = {generated_image.__class__} is not supported!")
 
-        response = Response(content=image_in_bytes, media_type="image/png")
-        # response = API_RESPONDER.result(is_successful=True, data=results)
+            response = Response(content=image_in_bytes, media_type="image/png")
+            # response = API_RESPONDER.result(is_successful=True, data=results)
+        
+        else:
+            if isinstance(generated_image, np.ndarray):
+                generated_image = Image.fromarray(generated_image.astype(np.uint8))
+            generated_image.save('logs/output.png')
+
+            images_fn = ['bbox.png','segment.png','contour.png','mask.png','output.png',
+                         'portrait.png','portrait_mask.png','portrait_kpts.png']
+                
+            buffer = BytesIO()
+            archive = ZipFile(buffer, mode='w', compression=ZIP_DEFLATED)
+            # archive.setpassword(b"secret")
+            for fname in images_fn:
+                archive.write('logs/'+fname)
+            archive.close()
+
+            return StreamingResponse(
+                iter([buffer.getvalue()]), 
+                media_type="application/x-zip-compressed", 
+                headers={"Content-Disposition": "attachment; filename=images.zip"}
+            )
 
     except Exception as e:
         response = API_RESPONDER.result(is_successful=False, err_log=traceback.format_exc())

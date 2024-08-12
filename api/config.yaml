@@ -31,11 +31,13 @@ PARAMETERS:
   
   num_steps: "Number of denosing steps.\nShould be 5 if LCM is enabled, else 30.\nDefault = 5"
   guidance_scale: "Parameter that controls how much the generation follows the prompt.\nShould be 0 if LCM is enabled, else 5.\nDefault = 0."
-  seed: "Random seed"
+  generation_seed: "Generation noise-seeding"
   enable_LCM: "LCM speeds up the inference step, the trade-off is the quality of the generated image.\nIt performs better with portrait face images rather than distant faces.\nDefault = True"
   enhance_face: "Enhance non-face region.\nDefault = True"
   strength_identitynet: "IdentityNet strength (for fidelity).\nDefault = 0.8"
   strength_ip_adapter: "Image adapter strength (for detail).\nDefault = 0.8"
+
+  return_output_only: "Whether to return output image or a compressed folder of step-by-step images (for debugging)."
 
 TAGS:
   - name: FaceSwap

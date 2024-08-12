@@ -103,10 +103,10 @@ class FaceSegmentationNet(torch.nn.Module):
     DTYPE = np.float32
 
     @classmethod
-    def prepare(cls, img, pre_normalize=True):
+    def prepare(cls, img, normalize=True):
         """
         :param img: RGB pillow Image
-        :param pre_normalize: If true, input image is normalized to be between 0 and 255.
+        :param normalize: If true, input image is normalized to be between 0 and 255.
         
         :returns: Torch BGR tensor of ``cls.DTYPE`` and shape ``(3, h, w)``
         """
@@ -117,8 +117,8 @@ class FaceSegmentationNet(torch.nn.Module):
         h, w, c = arr.shape
         assert c == 3, "3 Channels expected!"
         
-        # [Optional] pre-normalize to 0-255
-        if pre_normalize:
+        # [Optional] normalize to 0-255
+        if normalize:
             arr = normalize_range(arr, out_range=(0, 255))
 
         # normalize, reshape and convert to tensor
@@ -213,11 +213,11 @@ class FaceSegmentationNet(torch.nn.Module):
         x_in_shape = x_in.shape
         # compute stem 1
         x1 = self.conv1_1(x_in)
-        del x_in
         x1 = self.relu1_1(x1)
         x1 = self.conv1_2(x1)
         x1 = self.relu1_2(x1)
         x1 = self.pool1(x1)
+        del x_in
         #
         x1 = self.conv2_1(x1)
         x1 = self.relu2_1(x1)

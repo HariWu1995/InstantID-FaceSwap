@@ -150,11 +150,14 @@ def apply_style(style_name: str, positive: str, negative: str = "") -> Tuple[str
     return p, n
 
 
-def prepare_inputs( pose_image: PIL.Image, 
-                    mask_image: PIL.Image, 
+def prepare_inputs( pose_image: PIL.Image.Image, 
+                    mask_image: np.ndarray, 
                      face_info: dict,
                         resize: bool = True, 
                        padding: Tuple[int] = (20, 20), ):
+
+    assert isinstance(pose_image, PIL.Image.Image), f"{pose_image.__class__} is not supported!"        
+    assert isinstance(mask_image, np.ndarray), f"{mask_image.__class__} is not supported!"
     
     pad_W, pad_H = padding
     W, H = pose_image.size
@@ -174,7 +177,8 @@ def prepare_inputs( pose_image: PIL.Image,
     p_x1, p_y1, p_x2, p_y2 = int(p_x1), int(p_y1), int(p_x2), int(p_y2)
 
     # Crop
-    mask = mask_image.crop((p_x1, p_y1, p_x2, p_y2))
+    mask_image = Image.fromarray(mask_image.astype(np.uint8))
+    mask  = mask_image.crop((p_x1, p_y1, p_x2, p_y2))
     image = pose_image.crop((p_x1, p_y1, p_x2, p_y2))
     p_W, p_H = image.size
 
@@ -253,10 +257,12 @@ def swap_face_only( face_image,
 
     face_bbox = face_info['bbox']
     left, top, right, bottom = face_bbox
-    left, right = max(0, int(left-mask_padding_W)), min(width, int(right+mask_padding_W))
-    top, bottom = max(0, int(top-mask_padding_H)), min(width, int(bottom+mask_padding_H))
+    left, right = max(0, int(left-mask_padding_W)), min(pose_width, int(right+mask_padding_W))
+    top, bottom = max(0, int(top-mask_padding_H)), min(pose_height, int(bottom+mask_padding_H))
+    pose_image_face_size = (right-left, bottom-top)
     pose_image_face = pose_image.crop((left, top, right, bottom))
-    pose_image_face.save('bbox.png')
+    pose_image_face = pose_image_face.resize((512, 820), PIL.Image.BILINEAR)
+    pose_image_face.save('logs/bbox.png')
 
     # Load Face-Segmentation Model
     print(f"\nLoading Face-Segmentation @ {face_segmentor_dir} ...")
@@ -268,14 +274,15 @@ def swap_face_only( face_image,
     # Automatic segmentation for face mask
     print("\nSegmenting inside bounding-box ...")
     with torch.no_grad():
-        pose_image_face = face_segmentor.prepare(pose_image_face, pre_normalize=True).unsqueeze(0)
+        pose_image_face = face_segmentor.prepare(pose_image_face, normalize=True).unsqueeze(0)
         pose_image_face = pose_image_face.to(device)
         mask = face_segmentor(pose_image_face, as_pmap=True).detach().cpu().numpy()[0]
-    
+        mask = cv2.resize(mask, pose_image_face_size, interpolation = cv2.INTER_AREA if (bottom-top) > 820
+                                                                else cv2.INTER_LINEAR)
     bbox_mask = (mask > mask_threshold).astype(np.uint8)
     face_mask = np.zeros(pose_image_arr.shape[:2], np.uint8)
     face_mask[top:bottom, left:right] = bbox_mask
-    cv2.imwrite('segment.png', face_mask * 255)
+    cv2.imwrite('logs/segment.png', face_mask * 255)
 
     # Noise removal
     print("\nRemoving noise in face mask ...")
@@ -291,14 +298,14 @@ def swap_face_only( face_image,
     contour = max(contours, key=cv2.contourArea)
     border = cv2.convexHull(contour, False)
     cv2.drawContours(temp_mask, [border], 0, 1, -1)
-    cv2.imwrite('contour.png', temp_mask * 255)
+    cv2.imwrite('logs/contour.png', temp_mask * 255)
 
     # Smoothing & padding mask
     print("\nPadding mask ...")
     kernel = np.ones((mask_padding_H, mask_padding_W), np.uint8) 
     face_mask = cv2.medianBlur(temp_mask, 19)
     face_mask = cv2.dilate(face_mask, kernel, iterations=1)
-    cv2.imwrite('mask.png', face_mask * 255)
+    cv2.imwrite('logs/mask.png', face_mask * 255)
 
     # return visualize_face_mask_and_keypoints(pose_image, 
     #                                          face_mask, 
@@ -311,27 +318,20 @@ def swap_face_only( face_image,
     print("\nCropping portrait from pose-image ...")
     portrait_images, \
     portrait_coordinates = prepare_inputs(  pose_image, 
-                                            mask_image,
+                                            face_mask,
                                             face_info, 
                                             resize=True,
                                             padding=(mask_padding_W*2, mask_padding_H*2,))
     portrai_left, portrai_top, \
     portrai_width, portrai_height = portrait_coordinates
     portrait_mask, portrait_image, portrait_kpts = portrait_images
-    portrait_image.save('portrait.png')
-    portrait_mask.save('portrait_mask.png')
-    portrait_kpts.save('portrait_kpts.png')
+    portrait_image.save('logs/portrait.png')
+    portrait_mask.point(lambda x: x * 255)\
+                 .save('logs/portrait_mask.png')
+    portrait_kpts.save('logs/portrait_kpts.png')
 
-    face_mask = portrait_mask
-
-    # Extend 1-channel mask to 3-channel image
-    # face_mask = np.tile(face_mask, (3, 1, 1))
-    # face_mask = np.swapaxes(face_mask, 1, 2)
-    # face_mask = np.swapaxes(face_mask, 0, 2)
-    face_mask = Image.fromarray(face_mask.astype(np.uint8))
-
+    # 
     if enhance_face_region:
-        print("\nEnhancing face ...")
         control_mask = np.zeros([height, width, 3])
         x1, y1, x2, y2 = face_info["bbox"]
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
