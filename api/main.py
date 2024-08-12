@@ -2,16 +2,19 @@ import sys
 sys.path.append('./')
 
 import os
+import gc
 import random
 import argparse
 import traceback
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
+from typing import Union, Literal, List, Tuple
 
-import numpy as np
 import PIL
 from PIL import Image
 from io import BytesIO
-from typing import Union, Literal, List, Tuple
+
+import torch
+import numpy as np
 
 import uvicorn
 
@@ -25,7 +28,8 @@ from api.io_util import load_config, load_multipart_file
 from api.templates import OutputAPI
 from api.conversion import image2base64
 from api.facegen_util import generate_image, STYLE_NAMES, STYLE_DEFAULT
-from api.faceswap_util import swap_face_only
+from api.faceswap_util import swap_face_only, DEVICE
+from api.profiler_util import get_gpu_memory, get_gpu_profile
 
 
 STYLE_NAMES = tuple(STYLE_NAMES)
@@ -33,6 +37,7 @@ STYLE_NAMES = tuple(STYLE_NAMES)
 
 # Model Config
 MODEL_CONFIG = dict(
+        cuda_device_id = -1,
     face_segmentor_dir = './checkpoints',
     face_analyzer_dir = './',
     face_adapter_dir = './checkpoints',
@@ -88,6 +93,7 @@ async def config(
       face_adapter_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_dir'], default=MODEL_CONFIG['face_adapter_dir']), 
         sdxl_ckpt_path : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
         lora_ckpt_path : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
+        cuda_device_id : int = Form(description=API_CONFIG['PARAMETERS']['cuda_device_id'], default=MODEL_CONFIG['cuda_device_id']), 
 ):
     try:
         global MODEL_CONFIG
@@ -97,9 +103,28 @@ async def config(
              face_adapter_dir = face_adapter_dir,
                sdxl_ckpt_path = sdxl_ckpt_path,
                lora_ckpt_path = lora_ckpt_path,
+               cuda_device_id = cuda_device_id,
         ))
         response = API_RESPONDER.result(is_successful=True, data=MODEL_CONFIG)
 
+    except Exception as e:
+        response = API_RESPONDER.result(is_successful=False, err_log=traceback.format_exc())
+    
+    return response
+
+
+@app.post("/clear")
+async def clear():
+    try:
+        gpu_mem_old = get_gpu_profile()
+        
+        gc.collect()
+        if str(DEVICE).__contains__("cuda"):
+            torch.cuda.empty_cache()
+        
+        gpu_mem_new = get_gpu_profile()
+        response = API_RESPONDER.result(is_successful=True, data={'GPU usage before': gpu_mem_old,
+                                                                  'GPU usage after': gpu_mem_new, })
     except Exception as e:
         response = API_RESPONDER.result(is_successful=False, err_log=traceback.format_exc())
     

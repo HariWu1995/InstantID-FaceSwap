@@ -36,11 +36,10 @@ from pipeline.sdxl_instantid_inpaint import StableDiffusionXLInstantIDInpaintPip
 
 # global variable
 MAX_SEED = np.iinfo(np.int32).max
+DEVICE = get_torch_device()
+DTYPE = torch.float16 if str(DEVICE).__contains__("cuda") else torch.float32
 
-device = get_torch_device()
-dtype = torch.float16 if str(device).__contains__("cuda") else torch.float32
-
-print(f"\n\nDevice = {device} - Dtype = {dtype}")
+print(f"\n\nDevice = {DEVICE} - Dtype = {DTYPE}")
 
 STYLE_NAMES = list(styles.keys())
 STYLE_DEFAULT = "(No style)"
@@ -232,6 +231,15 @@ def swap_face_only( face_image,
     controlnet_path = MODEL_CONFIG.get('face_adapter_dir', './checkpoints') + '/ControlNetModel'
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
     lora_ckpt_path = MODEL_CONFIG.get('lora_ckpt_path', 'latent-consistency/lcm-lora-sdxl')
+    
+    # Re-load device
+    cuda_device_id = MODEL_CONFIG.get('cuda_device_id', -1)
+    if cuda_device_id != -1:
+        device = torch.device(f'cuda:{cuda_device_id}')
+        dtype = torch.float16
+    else:
+        device = DEVICE
+        dtype = DTYPE
     
     # Preprocess face
     # face_image = load_image(face_image_path)

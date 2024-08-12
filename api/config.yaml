@@ -15,6 +15,7 @@ PARAMETERS:
   sdxl_ckpt_path: Path to SD-XL Checkpoint
   lora_ckpt_path: Path to LCM LoRA
   sam_ckpt_path: Path to Segment-Anything-Model v2
+  cuda_device_id: GPU Id to load Model(s)
 
   face_image: "Image of face"
   pose_image: "Image of human pose to swap face with 'face_image'"
