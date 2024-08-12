@@ -11,8 +11,7 @@ DESCRIPTION:
 PARAMETERS:
   face_segmentor_dir: Path to Face-Segmentation Model
   face_analyzer_dir: Path to InsightFace Analyzer
-  face_adapter_path: Path to Instant-ID Adapter
-  controlnet_path: Path to Instant-ID Controlnet
+  face_adapter_dir: Path to Instant-ID Adapter
   sdxl_ckpt_path: Path to SD-XL Checkpoint
   lora_ckpt_path: Path to LCM LoRA
   sam_ckpt_path: Path to Segment-Anything-Model v2

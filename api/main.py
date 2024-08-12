@@ -86,7 +86,7 @@ async def redirect():
 async def config(
     face_segmentor_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_segmentor_dir'], default=MODEL_CONFIG['face_segmentor_dir']), 
     face_analyzer_dir  : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
-    face_adapter_path  : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_path'], default=MODEL_CONFIG['face_adapter_path']), 
+    face_adapter_dir   : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_dir'], default=MODEL_CONFIG['face_adapter_path']), 
       controlnet_path  : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
        sdxl_ckpt_path  : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
        lora_ckpt_path  : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
@@ -96,8 +96,8 @@ async def config(
         MODEL_CONFIG.update(dict(
            face_segmentor_dir = face_segmentor_dir,
             face_analyzer_dir = face_analyzer_dir,
-            face_adapter_path = face_adapter_path,
-              controlnet_path = controlnet_path,
+            face_adapter_path = face_adapter_dir + '/ip-adapter.bin',
+              controlnet_path = face_adapter_dir + '/ControlNetModel',
                sdxl_ckpt_path = sdxl_ckpt_path,
                lora_ckpt_path = lora_ckpt_path,
         ))

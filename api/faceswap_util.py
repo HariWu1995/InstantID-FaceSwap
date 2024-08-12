@@ -325,9 +325,9 @@ def swap_face_only( face_image,
     portrai_left, portrai_top, \
     portrai_width, portrai_height = portrait_coordinates
     portrait_mask, portrait_image, portrait_kpts = portrait_images
+    portrait_mask = portrait_mask.point(lambda x: x * 255)
     portrait_image.save('logs/portrait.png')
-    portrait_mask.point(lambda x: x * 255)\
-                 .save('logs/portrait_mask.png')
+    portrait_mask.save('logs/portrait_mask.png')
     portrait_kpts.save('logs/portrait_kpts.png')
 
     # 

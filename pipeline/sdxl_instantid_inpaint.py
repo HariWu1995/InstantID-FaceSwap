@@ -296,7 +296,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                                         negative_pooled_prompt_embeds = negative_pooled_prompt_embeds,
                                                                device = device,
                                           do_classifier_free_guidance = self.do_classifier_free_guidance,
-                                                            clip_skip  =self.clip_skip,
+                                                            clip_skip = self.clip_skip,
                                                            lora_scale = text_encoder_lora_scale,
                                         )
 
@@ -397,7 +397,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
 
         add_noise = True if denoising_start is None else False
         latents_outputs = self.prepare_latents(
-            batch_size * num_images_per_prompt,
+            num_images_per_prompt * batch_size,
             num_channels_latents,
             height,
             width,
