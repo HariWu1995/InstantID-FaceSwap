@@ -131,8 +131,8 @@ def generate_image( face_image,
 
     # Re-load Model every query, to save memory
     face_analyzer_dir = MODEL_CONFIG.get('face_analyzer_dir', './')
-    face_adapter_path = MODEL_CONFIG.get('face_adapter_path', './checkpoints/ip-adapter.bin')
-    controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
+    face_adapter_path = MODEL_CONFIG.get('face_adapter_dir', './checkpoints') + '/ip-adapter.bin'
+    controlnet_path = MODEL_CONFIG.get('face_adapter_dir', './checkpoints') + '/ControlNetModel'
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
     lora_ckpt_path = MODEL_CONFIG.get('lora_ckpt_path', 'latent-consistency/lcm-lora-sdxl')
     

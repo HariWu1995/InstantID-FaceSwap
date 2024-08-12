@@ -215,8 +215,8 @@ def swap_face_only( face_image,
     # Re-load Model every query, to save memory
     face_segmentor_dir = MODEL_CONFIG.get('face_segmentor_dir', './checkpoints')
     face_analyzer_dir = MODEL_CONFIG.get('face_analyzer_dir', './')
-    face_adapter_path = MODEL_CONFIG.get('face_adapter_path', './checkpoints/ip-adapter.bin')
-    controlnet_path = MODEL_CONFIG.get('controlnet_path', './checkpoints/ControlNetModel')
+    face_adapter_path = MODEL_CONFIG.get('face_adapter_dir', './checkpoints') + '/ip-adapter.bin'
+    controlnet_path = MODEL_CONFIG.get('face_adapter_dir', './checkpoints') + '/ControlNetModel'
     sdxl_ckpt_path = MODEL_CONFIG.get('sdxl_ckpt_path', 'wangqixun/YamerMIX_v8')
     lora_ckpt_path = MODEL_CONFIG.get('lora_ckpt_path', 'latent-consistency/lcm-lora-sdxl')
     
@@ -232,8 +232,7 @@ def swap_face_only( face_image,
 
     # Load face analyzer
     print(f"\nLoading Face Analyzer @ {face_analyzer_dir} ...")
-    face_analyzer = FaceAnalysis(name='antelopev2', 
-                                 root=face_analyzer_dir, 
+    face_analyzer = FaceAnalysis(root=face_analyzer_dir, name='antelopev2', 
                             providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
     face_analyzer.prepare(ctx_id=0, det_size=(640, 640))
     

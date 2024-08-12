@@ -35,8 +35,7 @@ STYLE_NAMES = tuple(STYLE_NAMES)
 MODEL_CONFIG = dict(
     face_segmentor_dir = './checkpoints',
     face_analyzer_dir = './',
-    face_adapter_path = './checkpoints/ip-adapter.bin',
-    controlnet_path = './checkpoints/ControlNetModel',
+    face_adapter_dir = './checkpoints',
     sdxl_ckpt_path = "wangqixun/YamerMIX_v8",
     lora_ckpt_path = "latent-consistency/lcm-lora-sdxl",
     #sam_ckpt_path = "./checkpoints/sam2_hiera_small.pt",
@@ -85,19 +84,17 @@ async def redirect():
 @app.post("/config")
 async def config(
     face_segmentor_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_segmentor_dir'], default=MODEL_CONFIG['face_segmentor_dir']), 
-    face_analyzer_dir  : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
-    face_adapter_dir   : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_dir'], default=MODEL_CONFIG['face_adapter_path']), 
-      controlnet_path  : str = Form(description=API_CONFIG['PARAMETERS']['controlnet_path'], default=MODEL_CONFIG['controlnet_path']), 
-       sdxl_ckpt_path  : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
-       lora_ckpt_path  : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
+     face_analyzer_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
+      face_adapter_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_dir'], default=MODEL_CONFIG['face_adapter_dir']), 
+        sdxl_ckpt_path : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
+        lora_ckpt_path : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
 ):
     try:
         global MODEL_CONFIG
         MODEL_CONFIG.update(dict(
            face_segmentor_dir = face_segmentor_dir,
             face_analyzer_dir = face_analyzer_dir,
-            face_adapter_path = face_adapter_dir + '/ip-adapter.bin',
-              controlnet_path = face_adapter_dir + '/ControlNetModel',
+             face_adapter_dir = face_adapter_dir,
                sdxl_ckpt_path = sdxl_ckpt_path,
                lora_ckpt_path = lora_ckpt_path,
         ))
