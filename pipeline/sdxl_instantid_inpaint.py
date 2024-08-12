@@ -11,8 +11,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from diffusers import AutoPipelineForInpainting as SdXLControlNetInpaintPipeline
-# from diffusers import StableDiffusionXLControlNetInpaintPipeline as SdXLControlNetInpaintPipeline
+from diffusers import StableDiffusionXLControlNetInpaintPipeline as SdXLControlNetInpaintPipeline
 from diffusers.utils import deprecate, logging
 from diffusers.utils.torch_utils import is_compiled_module
 from diffusers.image_processor import PipelineImageInput
