@@ -150,6 +150,20 @@ def apply_style(style_name: str, positive: str, negative: str = "") -> Tuple[str
     return p, n
 
 
+def get_bbox_from_mask(mask) -> Tuple[int, int, int, int]:
+
+    if isinstance(mask, PIL.Image.Image):
+        mask = convert_from_image_to_cv2(image)
+
+    mask_boundaries = np.where(mask != 0)
+    m_x1 = int(np.min(mask_boundaries[1]))
+    m_x2 = int(np.max(mask_boundaries[1]))
+    m_y1 = int(np.min(mask_boundaries[0]))
+    m_y2 = int(np.max(mask_boundaries[0]))
+
+    return m_x1, m_x2, m_y1, m_y2
+
+
 def prepare_inputs( pose_image: PIL.Image.Image, 
                     mask_image: np.ndarray, 
                      face_info: dict,
@@ -162,12 +176,11 @@ def prepare_inputs( pose_image: PIL.Image.Image,
     pad_W, pad_H = padding
     W, H = pose_image.size
 
-    # Get face bounding-box
-    mask_boundaries = np.where(mask_image != 0)
-    m_x1 = int(np.min(mask_boundaries[1]))
-    m_x2 = int(np.max(mask_boundaries[1]))
-    m_y1 = int(np.min(mask_boundaries[0]))
-    m_y2 = int(np.max(mask_boundaries[0]))
+    # Standardize
+    mask_image = (mask_image * 255).astype(np.uint8)
+
+    # Get mask bounding-box
+    m_x1, m_x2, m_y1, m_y2 = get_bbox_from_mask(mask_image)
 
     # Get portrait bounding-box (mask + padding)
     p_x1 = max(0, m_x1 - pad_W)
@@ -177,7 +190,7 @@ def prepare_inputs( pose_image: PIL.Image.Image,
     p_x1, p_y1, p_x2, p_y2 = int(p_x1), int(p_y1), int(p_x2), int(p_y2)
 
     # Crop
-    mask_image = Image.fromarray(mask_image.astype(np.uint8))
+    mask_image = Image.fromarray(mask_image)
     mask  = mask_image.crop((p_x1, p_y1, p_x2, p_y2))
     image = pose_image.crop((p_x1, p_y1, p_x2, p_y2))
     p_W, p_H = image.size
@@ -324,16 +337,14 @@ def swap_face_only( face_image,
     portrai_left, portrai_top, \
     portrai_width, portrai_height = portrait_coordinates
     portrait_mask, portrait_image, portrait_kpts = portrait_images
-    portrait_mask = portrait_mask.point(lambda x: x * 255)
     portrait_image.save('logs/portrait.png')
     portrait_mask.save('logs/portrait_mask.png')
     portrait_kpts.save('logs/portrait_kpts.png')
 
     # 
     if enhance_face_region:
+        x1, y1, x2, y2 = get_bbox_from_mask(portrait_mask)
         control_mask = np.zeros([portrai_height, portrai_width, 3])
-        x1, y1, x2, y2 = face_info["bbox"]
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
         control_mask[y1:y2, x1:x2] = 255
         control_mask = Image.fromarray(control_mask.astype(np.uint8))
     else:
@@ -379,7 +390,7 @@ def swap_face_only( face_image,
     # load and disable LCM LoRA
     if enable_LCM:
         print("\nEnabling LoRA ...")
-        if lora_ckpt_path.endswith('safetensors'):
+        if lora_ckpt_path.endswith('.safetensors'):
             lora_dir, ckpt_name = os.path.split(lora_ckpt_path)
             pipe.load_lora_weights(lora_dir, weight_name=ckpt_name)
         else:

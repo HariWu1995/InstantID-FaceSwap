@@ -258,6 +258,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         if ip_adapter_scale is not None:
             self.set_ip_adapter_scale(ip_adapter_scale)
 
+        # 1. Check inputs. Raise error if not correct
         self._guidance_scale = guidance_scale
         self._clip_skip = clip_skip
         self._cross_attention_kwargs = cross_attention_kwargs
@@ -285,19 +286,19 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                negative_prompt_embeds,
                  pooled_prompt_embeds,
         negative_pooled_prompt_embeds,  ) = self.encode_prompt(
-                                         num_images_per_prompt   = num_images_per_prompt,
-                                                        prompt   =          prompt,
-                                                        prompt_2 =          prompt_2,
-                                               negative_prompt   = negative_prompt,
-                                               negative_prompt_2 = negative_prompt_2,
-                                                        prompt_embeds =          prompt_embeds,
-                                               negative_prompt_embeds = negative_prompt_embeds,
+                                         num_images_per_prompt        =  num_images_per_prompt,
+                                                        prompt        =                 prompt,
+                                                        prompt_2      =                 prompt_2,
+                                               negative_prompt        =        negative_prompt,
+                                               negative_prompt_2      =        negative_prompt_2,
+                                                        prompt_embeds =                 prompt_embeds,
+                                               negative_prompt_embeds =        negative_prompt_embeds,
                                                  pooled_prompt_embeds =          pooled_prompt_embeds,
                                         negative_pooled_prompt_embeds = negative_pooled_prompt_embeds,
-                                                               device = device,
                                           do_classifier_free_guidance = self.do_classifier_free_guidance,
                                                             clip_skip = self.clip_skip,
                                                            lora_scale = text_encoder_lora_scale,
+                                                               device = device,
                                         )
 
         # 4. set timesteps
