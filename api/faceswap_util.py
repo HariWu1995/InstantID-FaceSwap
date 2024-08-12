@@ -202,7 +202,7 @@ def swap_face_only( face_image,
                     style_name, 
                      num_steps, 
     identitynet_strength_ratio, 
-        adapter_strength_ratio, 
+     ip_adapter_strength_ratio, 
                 guidance_scale, 
                           seed, 
                     enable_LCM, 
@@ -366,9 +366,9 @@ def swap_face_only( face_image,
 
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
-    print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path} with strength = {adapter_strength_ratio} ...")
+    print(f"\nLoading Instant-Id IP-Adapter @ {face_adapter_path} with strength = {ip_adapter_strength_ratio} ...")
     pipe.load_ip_adapter_instantid(face_adapter_path)
-    pipe.set_ip_adapter_scale(adapter_strength_ratio)
+    pipe.set_ip_adapter_scale(ip_adapter_strength_ratio)
 
     # save VRAM
     print("\nEnabling GPU Efficient Memory ...")
@@ -414,7 +414,7 @@ def swap_face_only( face_image,
                            prompt = prompt,
                   negative_prompt = negative_prompt,
     controlnet_conditioning_scale = float(identitynet_strength_ratio),
-                 ip_adapter_scale = float(adapter_strength_ratio),
+                 ip_adapter_scale = float(ip_adapter_strength_ratio),
               num_inference_steps = int(ceil((num_steps / mask_strength))),
                    guidance_scale = guidance_scale,
                         generator = torch.Generator(device=device).manual_seed(seed),

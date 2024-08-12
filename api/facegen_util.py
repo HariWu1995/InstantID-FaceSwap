@@ -123,7 +123,7 @@ def generate_image( face_image,
                     style_name, 
                      num_steps, 
     identitynet_strength_ratio, 
-        adapter_strength_ratio, 
+     ip_adapter_strength_ratio, 
                 guidance_scale, 
                           seed, 
                     enable_LCM, 
@@ -253,7 +253,7 @@ def generate_image( face_image,
         pipe.disable_lora()
         pipe.scheduler = diffusers.EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 
-    pipe.set_ip_adapter_scale(adapter_strength_ratio)
+    pipe.set_ip_adapter_scale(ip_adapter_strength_ratio)
     
     if prompt is None:
         prompt = "a person"
