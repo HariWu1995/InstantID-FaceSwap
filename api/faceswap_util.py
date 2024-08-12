@@ -332,7 +332,7 @@ def swap_face_only( face_image,
 
     # 
     if enhance_face_region:
-        control_mask = np.zeros([height, width, 3])
+        control_mask = np.zeros([portrai_height, portrai_width, 3])
         x1, y1, x2, y2 = face_info["bbox"]
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
         control_mask[y1:y2, x1:x2] = 255
@@ -402,9 +402,9 @@ def swap_face_only( face_image,
     # Inference
     print("\nGenerating new face ...")
     generated_face = pipe(
-                           height = height,
-                            width = width,
                      image_embeds = face_emb,
+                           height = portrai_height,
+                            width = portrai_width,
                             image = portrait_image,
                        mask_image = portrait_mask,
                     control_image = portrait_kpts,
