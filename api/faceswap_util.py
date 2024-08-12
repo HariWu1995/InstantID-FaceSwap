@@ -415,7 +415,7 @@ def swap_face_only( face_image,
                   negative_prompt = negative_prompt,
     controlnet_conditioning_scale = float(identitynet_strength_ratio),
                  ip_adapter_scale = float(adapter_strength_ratio),
-              num_inference_steps = num_steps,
+              num_inference_steps = int(ceil((num_steps / mask_strength))),
                    guidance_scale = guidance_scale,
                         generator = torch.Generator(device=device).manual_seed(seed),
     ).images[0]
