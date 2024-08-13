@@ -34,6 +34,9 @@ from api.profiler_util import get_gpu_memory, get_gpu_profile, get_cpu_info
 
 STYLE_NAMES = tuple(STYLE_NAMES)
 
+PROMPT_POSITIVE = ''
+PROMPT_NEGATIVE = '(lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured (lowres, low quality, worst quality:1.2), (text:1.2), watermark, painting, drawing, illustration, glitch,deformed, mutated, cross-eyed, ugly, disfigured'
+
 
 # Model Config
 MODEL_CONFIG = dict(
@@ -201,8 +204,8 @@ async def generate(
                            File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
          style_name: Literal[STYLE_NAMES] = \
                            Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
-             prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
-    negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
+             prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default=PROMPT_POSITIVE), 
+    negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=PROMPT_NEGATIVE), 
           num_steps: int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=5), 
      guidance_scale: int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=0), 
     generation_seed: int = Form(description=API_CONFIG['PARAMETERS']['generation_seed'], default=3_3_2023), 
@@ -270,8 +273,8 @@ async def faceswap(
       mask_padding_W:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=19), 
       mask_padding_H:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=11), 
       mask_threshold: float = Form(description=API_CONFIG['PARAMETERS']['mask_threshold'], default=0.33), 
-              prompt:  str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default='a person'), 
-     negative_prompt:  str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=''), 
+             prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_positive'], default=PROMPT_POSITIVE), 
+    negative_prompt: str = Form(description=API_CONFIG['PARAMETERS']['prompt_negative'], default=PROMPT_NEGATIVE), 
       guidance_scale:  int = Form(description=API_CONFIG['PARAMETERS']['guidance_scale'], default=5), 
            num_steps:  int = Form(description=API_CONFIG['PARAMETERS']['num_steps'], default=30), 
      generation_seed:  int = Form(description=API_CONFIG['PARAMETERS']['generation_seed'], default=3_3_2023), 
