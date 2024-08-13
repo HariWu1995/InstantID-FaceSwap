@@ -19,6 +19,7 @@ import diffusers
 from diffusers.utils import load_image
 from diffusers.models import ControlNetModel
 from diffusers import LCMScheduler
+from diffusers.utils.import_utils import is_xformers_available
 
 from huggingface_hub import hf_hub_download
 
@@ -379,7 +380,8 @@ def swap_face_only( face_image,
     # save VRAM
     print("\nEnabling GPU Efficient Memory ...")
     pipe.enable_model_cpu_offload()
-    pipe.enable_xformers_memory_efficient_attention()
+    if is_xformers_available():
+        pipe.enable_xformers_memory_efficient_attention()
     pipe.vae.enable_slicing()
     pipe.vae.enable_tiling()
 

@@ -12,6 +12,7 @@ import torch
 import torch.nn.functional as F
 
 from diffusers import StableDiffusionXLControlNetInpaintPipeline as SdXLControlNetInpaintPipeline
+from diffusers.models import ControlNetModel
 from diffusers.utils import deprecate, logging
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
