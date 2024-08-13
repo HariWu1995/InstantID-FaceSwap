@@ -13,9 +13,11 @@ import torch.nn.functional as F
 
 from diffusers import StableDiffusionXLControlNetInpaintPipeline as SdXLControlNetInpaintPipeline
 from diffusers.utils import deprecate, logging
+from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 from diffusers.image_processor import PipelineImageInput
 from diffusers.pipelines.stable_diffusion_xl import StableDiffusionXLPipelineOutput as SdXLPipelineOutput
+from diffusers.pipelines.controlnet.multicontrolnet import MultiControlNetModel
 
 from ip_adapter.resampler import Resampler
 from ip_adapter.utils import is_torch2_available
@@ -177,6 +179,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         original_size: Tuple[int, int] = None,
         crops_coords_top_left: Tuple[int, int] = (0, 0),
         target_size: Tuple[int, int] = None,
+        padding_mask_crop = None,
 
         # Inputs for Inpaint
         control_image: PipelineImageInput = None,
@@ -248,10 +251,14 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         elif not isinstance(control_guidance_end, list) and isinstance(control_guidance_start, list):
             control_guidance_end = len(control_guidance_start) * [control_guidance_end]
         elif not isinstance(control_guidance_start, list) and not isinstance(control_guidance_end, list):
+            mult = len(controlnet.nets) if isinstance(controlnet, MultiControlNetModel) else 1
             control_guidance_start, control_guidance_end = (
-                1 * [control_guidance_start],
-                1 * [control_guidance_end],
+                mult * [control_guidance_start],
+                mult * [control_guidance_end],
             )
+
+        if isinstance(controlnet, MultiControlNetModel) and isinstance(controlnet_conditioning_scale, float):
+            controlnet_conditioning_scale = [controlnet_conditioning_scale] * len(controlnet.nets)
 
         # 0. set ip_adapter_scale
         print('\n\tSetting scale for IP-Adapter ...')
@@ -302,10 +309,10 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                                         )
 
         # 4. set timesteps
-        print('\n\tSetting timesteps ...')
         def denoising_value_valid(dnv):
             return isinstance(denoising_end, float) and 0 < dnv < 1
 
+        print('\n\tSetting timesteps ...')
         self.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps, num_inference_steps = self.get_timesteps(
                    num_inference_steps, strength, device, denoising_start=denoising_start 
@@ -327,10 +334,15 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         is_strength_max = strength == 1.0
         self._num_timesteps = len(timesteps)
 
-        # 3.1 Preprocess image
-        print('\n\tPreprocessing image ...')
-        crops_coords = None
-        resize_mode = "default"
+        # 5. Preprocess mask and image - resizes image and mask w.r.t height and width
+        # 5.1 Prepare init image
+        if padding_mask_crop is not None:
+            height, width = self.image_processor.get_default_height_width(image, height, width)
+            crops_coords = self.mask_processor.get_crop_region(mask_image, width, height, pad=padding_mask_crop)
+            resize_mode = "fill"
+        else:
+            crops_coords = None
+            resize_mode = "default"
 
         init_image = self.image_processor.preprocess(
             image, height=height, width=width, crops_coords=crops_coords, resize_mode=resize_mode
@@ -367,19 +379,44 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
 
         # 5.2 Prepare control images
         print('\n\tControlling image ...')
-        control_image = self.prepare_control_image(
-            image=control_image,
-            width=width,
-            height=height,
-            batch_size=batch_size * num_images_per_prompt,
-            num_images_per_prompt=num_images_per_prompt,
-            device=device,
-            dtype=controlnet.dtype,
-            crops_coords=crops_coords,
-            resize_mode=resize_mode,
-            do_classifier_free_guidance=self.do_classifier_free_guidance,
-            guess_mode=guess_mode,
-        )
+        if isinstance(controlnet, ControlNetModel):
+            control_image = self.prepare_control_image(
+                image=control_image,
+                width=width,
+                height=height,
+                batch_size=batch_size * num_images_per_prompt,
+                num_images_per_prompt=num_images_per_prompt,
+                device=device,
+                dtype=controlnet.dtype,
+                #crops_coords=crops_coords,
+                #resize_mode=resize_mode,
+                do_classifier_free_guidance=self.do_classifier_free_guidance,
+                guess_mode=guess_mode,
+            )
+
+        elif isinstance(controlnet, MultiControlNetModel):
+            control_images = []
+            for control_image_ in control_image:
+                control_image_ = self.prepare_control_image(
+                    image=control_image_,
+                    width=width,
+                    height=height,
+                    batch_size=batch_size * num_images_per_prompt,
+                    num_images_per_prompt=num_images_per_prompt,
+                    device=device,
+                    dtype=controlnet.dtype,
+                    #crops_coords=crops_coords,
+                    #resize_mode=resize_mode,
+                    do_classifier_free_guidance=self.do_classifier_free_guidance,
+                    guess_mode=guess_mode,
+                )
+
+                control_images.append(control_image_)
+                
+            control_image = control_images
+
+        else:
+            raise ValueError(f"{controlnet.__class__} is not supported.")
 
         # 5.3 Prepare mask
         print('\n\tPreprocessing mask ...')
@@ -433,6 +470,25 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
             self.do_classifier_free_guidance,
         )
 
+        # 8. Check that sizes of mask, masked image and latents match
+        if num_channels_unet == 9:
+            # default case for runwayml/stable-diffusion-inpainting
+            num_channels_mask = mask.shape[1]
+            num_channels_masked_image = masked_image_latents.shape[1]
+            if num_channels_latents + num_channels_mask + num_channels_masked_image != self.unet.config.in_channels:
+                raise ValueError(
+                    f"Incorrect configuration settings! The config of `pipeline.unet`: {self.unet.config} expects"
+                    f" {self.unet.config.in_channels} but received `num_channels_latents`: {num_channels_latents} +"
+                    f" `num_channels_mask`: {num_channels_mask} + `num_channels_masked_image`: {num_channels_masked_image}"
+                    f" = {num_channels_latents+num_channels_masked_image+num_channels_mask}. Please verify the config of"
+                    " `pipeline.unet` or your `mask_image` or `image` input."
+                )
+
+        elif num_channels_unet != 4:
+            raise ValueError(
+                f"The unet {self.unet.__class__} should have either 4 or 9 input channels, not {self.unet.config.in_channels}."
+            )
+
         # 8.1 Prepare extra step kwargs.
         print('\n\tPreparing extra ...')
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
@@ -445,7 +501,10 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                 1.0 - float(i / len(timesteps) < s or (i + 1) / len(timesteps) > e)
                 for s, e in zip(control_guidance_start, control_guidance_end)
             ]
-            controlnet_keep.append(keeps[0])
+            if isinstance(self.controlnet, MultiControlNetModel):
+                controlnet_keep.append(keeps)
+            else:
+                controlnet_keep.append(keeps[0])
 
         # 9. Prepare extra step kwargs. 
         # TODO: Logic should ideally just be moved out of the pipeline
@@ -459,8 +518,10 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         # 10. Prepare added time ids & embeddings
         print('\n\tPreparing time ids & embeddings ...')
         add_text_embeds = pooled_prompt_embeds
-
-        text_encoder_projection_dim = self.text_encoder_2.config.projection_dim
+        if self.text_encoder_2 is None:
+            text_encoder_projection_dim = int(pooled_prompt_embeds.shape[-1])
+        else:
+            text_encoder_projection_dim = self.text_encoder_2.config.projection_dim
 
         add_time_ids, add_neg_time_ids = self._get_add_time_ids(
             original_size,
@@ -482,6 +543,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
         prompt_embeds = prompt_embeds.to(device)
         add_text_embeds = add_text_embeds.to(device)
         add_time_ids = add_time_ids.to(device)
+        encoder_hidden_states = torch.cat([prompt_embeds, prompt_image_emb], dim=1)
 
         # 11. Denoising loop
         print('\n\tDenoising ...')
@@ -526,12 +588,14 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                     # Infer ControlNet only for the conditional batch.
                     control_model_input = latents
                     control_model_input = self.scheduler.scale_model_input(control_model_input, t)
+                    controlnet_prompt_embeds = prompt_embeds.chunk(2)[1]
                     controlnet_added_cond_kwargs = {
                         "text_embeds": add_text_embeds.chunk(2)[1],
                            "time_ids": add_time_ids.chunk(2)[1],
                     }
                 else:
                     control_model_input = latent_model_input
+                    controlnet_prompt_embeds = prompt_embeds
                     controlnet_added_cond_kwargs = added_cond_kwargs
 
                 if isinstance(controlnet_keep[i], list):
@@ -573,11 +637,14 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                     down_block_res_samples = [torch.cat([torch.zeros_like(d), d]) for d in down_block_res_samples]
                     mid_block_res_sample = torch.cat([torch.zeros_like(mid_block_res_sample), mid_block_res_sample])
 
+                if num_channels_unet == 9:
+                    latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
+
                 # predict the noise residual
                 noise_pred = self.unet(
                     latent_model_input,
                     t,
-                    encoder_hidden_states=prompt_embeds,
+                    encoder_hidden_states=encoder_hidden_states,
                     cross_attention_kwargs=self.cross_attention_kwargs,
                     down_block_additional_residuals=down_block_res_samples,
                     mid_block_additional_residual=mid_block_res_sample,
@@ -597,25 +664,20 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
 
-                #####################
-                #   Inpaint Code    #
-                #####################
-                init_latents_proper = image_latents
-                if self.do_classifier_free_guidance:
-                    init_mask, _ = mask.chunk(2)
-                else:
-                    init_mask = mask
+                if num_channels_unet == 4:
+                    init_latents_proper = image_latents
+                    if self.do_classifier_free_guidance:
+                        init_mask, _ = mask.chunk(2)
+                    else:
+                        init_mask = mask
 
-                if i < len(timesteps) - 1:
-                    noise_timestep = timesteps[i + 1]
-                    init_latents_proper = self.scheduler.add_noise(
-                        init_latents_proper, noise, torch.tensor([noise_timestep])
-                    )
+                    if i < len(timesteps) - 1:
+                        noise_timestep = timesteps[i + 1]
+                        init_latents_proper = self.scheduler.add_noise(
+                            init_latents_proper, noise, torch.tensor([noise_timestep])
+                        )
 
-                latents = (1 - init_mask) * init_latents_proper + init_mask * latents
-                #####################
-                #      End Code     #
-                #####################
+                    latents = (1 - init_mask) * init_latents_proper + init_mask * latents
 
                 # Callback(s)
                 if callback_on_step_end is not None:
@@ -660,7 +722,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
             print('\n\tDecoding ...')
             out_image = self.vae.decode(latents, return_dict=False)[0]
 
-            # cast back to fp16 if needed
+            # cast back to fp16, if needed
             if needs_upcasting:
                 self.vae.to(dtype=torch.float16)
         else:

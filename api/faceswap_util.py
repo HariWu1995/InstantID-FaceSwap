@@ -30,7 +30,6 @@ from insightface.app import FaceAnalysis
 import face_segmentation as FaceSeg
 
 from api.model_util import load_models_xl, get_torch_device, torch_gc
-from api.style_template import styles
 from pipeline.sdxl_instantid_inpaint import StableDiffusionXLInstantIDInpaintPipeline as SdXlInstantIdPipeline
 
 
@@ -40,9 +39,6 @@ DEVICE = get_torch_device()
 DTYPE = torch.float16 if str(DEVICE).__contains__("cuda") else torch.float32
 
 print(f"\n\nDevice = {DEVICE} - Dtype = {DTYPE}")
-
-STYLE_NAMES = list(styles.keys())
-STYLE_DEFAULT = "(No style)"
 
 
 # functions
@@ -141,14 +137,6 @@ def visualize_face_mask_and_keypoints(face_image: PIL.Image,
     return face_image
 
 
-def apply_style(style_name: str, positive: str, negative: str = "") -> Tuple[str, str]:
-    p, n = styles.get(style_name, styles[STYLE_DEFAULT])
-    p = p.format(prompt=positive)
-    if len(negative) > 0:
-        n = n + '. ' + negative
-    return p, n
-
-
 def get_bbox_from_mask(mask) -> Tuple[int, int, int, int]:
 
     if isinstance(mask, PIL.Image.Image):
@@ -215,14 +203,12 @@ def swap_face_only( face_image,
                 mask_threshold,
                         prompt, 
                negative_prompt, 
-                    style_name, 
                      num_steps, 
     identitynet_strength_ratio, 
      ip_adapter_strength_ratio, 
                 guidance_scale, 
                           seed, 
-                    enable_LCM, 
-           enhance_face_region, MODEL_CONFIG, **kwargs):
+                    enable_LCM, MODEL_CONFIG, **kwargs):
 
     # Re-load Model every query, to save memory
     face_segmentor_dir = MODEL_CONFIG.get('face_segmentor_dir', './checkpoints')
@@ -333,6 +319,8 @@ def swap_face_only( face_image,
 
     # Remove face analyzer & segmentor to save memory
     del face_analyzer, face_segmentor
+    if str(device).__contains__("cuda"):
+        torch.cuda.empty_cache()
 
     # Crop portrait from pose-image
     print("\nCropping portrait from pose-image ...")
@@ -350,7 +338,7 @@ def swap_face_only( face_image,
     portrait_kpts.save('logs/portrait_kpts.png')
 
     # 
-    if enhance_face_region:
+    if kwargs.get('enhance_face_region', False):
         x1, y1, x2, y2 = get_bbox_from_mask(portrait_mask)
         control_mask = np.zeros([portrai_height, portrai_width, 3])
         control_mask[y1:y2, x1:x2] = 255
@@ -404,6 +392,7 @@ def swap_face_only( face_image,
         else:
             pipe.load_lora_weights(lora_ckpt_path)
         pipe.enable_lora()
+        pipe.fuse_lora()
         pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
     else:
         print("\nDisabling LoRA ...")
@@ -412,10 +401,6 @@ def swap_face_only( face_image,
     
     if prompt is None:
         prompt = "a person"
-    
-    # apply the style template
-    prompt, negative_prompt = apply_style(style_name, prompt, negative_prompt)
-    print(f"\tPositive Prompt: {prompt}, \n\tNegative Prompt: {negative_prompt}")
 
     # Inference
     print("\nGenerating new face ...")

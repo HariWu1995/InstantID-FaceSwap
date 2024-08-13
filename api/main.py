@@ -249,8 +249,6 @@ async def faceswap(
                             File(description=API_CONFIG['PARAMETERS']['face_image'], media_type='multipart/form-data'),
           pose_image: UploadFile = \
                             File(description=API_CONFIG['PARAMETERS']['pose_image'], media_type='multipart/form-data'),
-          style_name: Literal[STYLE_NAMES] = \
-                            Form(description=API_CONFIG['PARAMETERS']['style_name'], default=STYLE_DEFAULT),
       mask_strength : float = Form(description=API_CONFIG['PARAMETERS']['mask_strength'], default=0.99), 
       mask_padding_W:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_W'], default=19), 
       mask_padding_H:   int = Form(description=API_CONFIG['PARAMETERS']['mask_padding_H'], default=11), 
@@ -262,7 +260,7 @@ async def faceswap(
      generation_seed:  int = Form(description=API_CONFIG['PARAMETERS']['generation_seed'], default=3_3_2023), 
           enable_LCM: bool = Form(description=API_CONFIG['PARAMETERS']['enable_LCM'], default=False), 
         enhance_face: bool = Form(description=API_CONFIG['PARAMETERS']['enhance_face'], default=False),
-    strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.8), 
+    strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.11), 
     strength_identitynet: float = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
       return_output_only: bool = Form(description=API_CONFIG['PARAMETERS']['return_output_only'], default=True), 
 ):
@@ -291,7 +289,6 @@ async def faceswap(
                             mask_threshold = mask_threshold,
                                     prompt = prompt, 
                            negative_prompt = negative_prompt, 
-                                style_name = style_name, 
                                  num_steps = num_steps, 
                 identitynet_strength_ratio = strength_identitynet, 
                  ip_adapter_strength_ratio = strength_ip_adapter, 
