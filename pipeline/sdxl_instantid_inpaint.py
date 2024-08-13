@@ -459,7 +459,7 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
 
         # 7. Prepare mask latent variables
         print('\n\tPreparing mask ...')
-        mask, _ = self.prepare_mask_latents(
+        mask, masked_image_latents = self.prepare_mask_latents(
             mask,
             masked_image,
             batch_size * num_images_per_prompt,
