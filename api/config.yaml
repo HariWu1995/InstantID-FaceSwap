@@ -39,6 +39,7 @@ PARAMETERS:
   strength_ip_adapter: "Image adapter strength (for detail).\nDefault = 0.8"
 
   return_output_only: "Whether to return output image or a compressed folder of step-by-step images (for debugging)."
+  reface_mask_only: "Whether to replace face with mask-zone or portrait-zone."
 
 TAGS:
   - name: FaceSwap

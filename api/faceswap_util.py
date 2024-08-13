@@ -436,8 +436,10 @@ def swap_face_only( face_image,
     print("\nReplacing the face in pose-image ...")
     resized_mask = portrait_mask.resize((portrai_width, portrai_height))
     resized_face = generated_face.resize((portrai_width, portrai_height), resample=Image.LANCZOS)
-    pose_image.paste(resized_face, (portrai_left, portrai_top), mask=resized_mask)
-
+    if kwargs.get('reface_mask_only', True):
+        pose_image.paste(resized_face, (portrai_left, portrai_top), mask=resized_mask)
+    else:
+        pose_image.paste(resized_face, (portrai_left, portrai_top))
     return pose_image
 
 

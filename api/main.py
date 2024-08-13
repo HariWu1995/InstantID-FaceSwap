@@ -280,6 +280,7 @@ async def faceswap(
     strength_ip_adapter: float = Form(description=API_CONFIG['PARAMETERS']['strength_ip_adapter'], default=0.11), 
     strength_identitynet: float = Form(description=API_CONFIG['PARAMETERS']['strength_identitynet'], default=0.8), 
       return_output_only: bool = Form(description=API_CONFIG['PARAMETERS']['return_output_only'], default=True), 
+        reface_mask_only: bool = Form(description=API_CONFIG['PARAMETERS']['reface_mask_only'], default=True), 
 ):
 
     try:        
@@ -312,7 +313,8 @@ async def faceswap(
                             guidance_scale = guidance_scale, 
                                       seed = generation_seed, 
                                 enable_LCM = enable_LCM, 
-                       enhance_face_region = enhance_face, 
+                       enhance_face_region = enhance_face,
+                          reface_mask_only = reface_mask_only, 
                               MODEL_CONFIG = MODEL_CONFIG,
         )
 
