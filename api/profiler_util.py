@@ -1,9 +1,18 @@
 import subprocess
+import psutil
+
 import torch
 
 
 ACCEPTABLE_AVAILABLE_MEMORY = 1024
 COMMAND = "nvidia-smi --query-gpu=memory.used --format=csv"
+
+
+def get_cpu_info():
+    return {
+        'CPU_usage': psutil.cpu_percent(),
+        'RAM_usage': dict(psutil.virtual_memory()._asdict()),
+    }
 
 
 def get_gpu_memory():

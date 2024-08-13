@@ -377,10 +377,12 @@ def swap_face_only( face_image,
     pipe.load_ip_adapter_instantid(face_adapter_path)
     pipe.set_ip_adapter_scale(ip_adapter_strength_ratio)
 
-    # save VRAM
-    print("\nEnabling GPU Efficient Memory ...")
-    pipe.enable_model_cpu_offload()
+    # Work with CPU - GPU
+    if MODEL_CONFIG.get('offload_to_cpu', False):
+        print("\nEnabling CPU Offloading (for faster execution) ...")
+        pipe.enable_model_cpu_offload(device=device)
     if is_xformers_available():
+        print("\nEnabling GPU Efficient Memory ...")
         pipe.enable_xformers_memory_efficient_attention()
     pipe.vae.enable_slicing()
     pipe.vae.enable_tiling()

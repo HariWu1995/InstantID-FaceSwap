@@ -16,6 +16,7 @@ PARAMETERS:
   lora_ckpt_path: Path to LCM LoRA
   sam_ckpt_path: Path to Segment-Anything-Model v2
   cuda_device_id: GPU Id to load Model(s)
+  offload_to_cpu: "Whether to offload all models to CPU, reducing memory usage with a low impact on performance.\nMore details: find `enable_model_cpu_offload` in https://huggingface.co/docs/diffusers/en/api/pipelines/overview"
 
   face_image: "Image of face"
   pose_image: "Image of human pose to swap face with 'face_image'"

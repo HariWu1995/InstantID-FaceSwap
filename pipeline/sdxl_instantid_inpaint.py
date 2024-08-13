@@ -1,5 +1,5 @@
 # based on https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/controlnet/pipeline_controlnet_inpaint_sd_xl.py
-
+import psutil
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import cv2
@@ -738,8 +738,9 @@ class StableDiffusionXLInstantIDInpaintPipeline(SdXLControlNetInpaintPipeline):
             out_image = self.image_processor.postprocess(out_image, output_type=output_type)
 
         # Offload all parameters
-        print('\n\tOffloading all parameters ...')
-        self.maybe_free_model_hooks()
+        if kwargs.get('offload_to_cpu', False):
+            print('\n\tOffloading all parameters ...')
+            self.maybe_free_model_hooks()
 
         print('\n\tReturning outputs ...')
         if not return_dict:

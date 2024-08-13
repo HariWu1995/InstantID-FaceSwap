@@ -29,7 +29,7 @@ from api.templates import OutputAPI
 from api.conversion import image2base64
 from api.facegen_util import generate_image, STYLE_NAMES, STYLE_DEFAULT
 from api.faceswap_util import swap_face_only, DEVICE
-from api.profiler_util import get_gpu_memory, get_gpu_profile
+from api.profiler_util import get_gpu_memory, get_gpu_profile, get_cpu_info
 
 
 STYLE_NAMES = tuple(STYLE_NAMES)
@@ -37,6 +37,7 @@ STYLE_NAMES = tuple(STYLE_NAMES)
 
 # Model Config
 MODEL_CONFIG = dict(
+        offload_to_cpu = False,
         cuda_device_id = -1,
     face_segmentor_dir = './checkpoints',
     face_analyzer_dir = './',
@@ -88,12 +89,13 @@ async def redirect():
 
 @app.post("/config")
 async def config(
-    face_segmentor_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_segmentor_dir'], default=MODEL_CONFIG['face_segmentor_dir']), 
-     face_analyzer_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
-      face_adapter_dir : str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_dir'], default=MODEL_CONFIG['face_adapter_dir']), 
-        sdxl_ckpt_path : str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
-        lora_ckpt_path : str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
-        cuda_device_id : int = Form(description=API_CONFIG['PARAMETERS']['cuda_device_id'], default=MODEL_CONFIG['cuda_device_id']), 
+    face_segmentor_dir :  str = Form(description=API_CONFIG['PARAMETERS']['face_segmentor_dir'], default=MODEL_CONFIG['face_segmentor_dir']), 
+     face_analyzer_dir :  str = Form(description=API_CONFIG['PARAMETERS']['face_analyzer_dir'], default=MODEL_CONFIG['face_analyzer_dir']), 
+      face_adapter_dir :  str = Form(description=API_CONFIG['PARAMETERS']['face_adapter_dir'], default=MODEL_CONFIG['face_adapter_dir']), 
+        sdxl_ckpt_path :  str = Form(description=API_CONFIG['PARAMETERS']['sdxl_ckpt_path'], default=MODEL_CONFIG['sdxl_ckpt_path']), 
+        lora_ckpt_path :  str = Form(description=API_CONFIG['PARAMETERS']['lora_ckpt_path'], default=MODEL_CONFIG['lora_ckpt_path']), 
+        cuda_device_id :  int = Form(description=API_CONFIG['PARAMETERS']['cuda_device_id'], default=MODEL_CONFIG['cuda_device_id']), 
+        offload_to_cpu : bool = Form(description=API_CONFIG['PARAMETERS']['offload_to_cpu'], default=MODEL_CONFIG['offload_to_cpu']), 
 ):
     try:
         global MODEL_CONFIG
@@ -104,6 +106,7 @@ async def config(
                sdxl_ckpt_path = sdxl_ckpt_path,
                lora_ckpt_path = lora_ckpt_path,
                cuda_device_id = cuda_device_id,
+               offload_to_cpu = offload_to_cpu,
         ))
         response = API_RESPONDER.result(is_successful=True, data=MODEL_CONFIG)
 
@@ -125,6 +128,20 @@ async def clear():
         gpu_mem_new = get_gpu_profile()
         response = API_RESPONDER.result(is_successful=True, data={'GPU usage before': gpu_mem_old,
                                                                   'GPU usage after': gpu_mem_new, })
+    except Exception as e:
+        response = API_RESPONDER.result(is_successful=False, err_log=traceback.format_exc())
+    
+    return response
+
+
+@app.post("/profile")
+async def profile():
+    try:
+        gpu_mem = get_gpu_profile()
+        sys_profile = get_cpu_info()
+        sys_profile.update({ 'GPU usage': gpu_mem, })
+
+        response = API_RESPONDER.result(is_successful=True, data=sys_profile)
     except Exception as e:
         response = API_RESPONDER.result(is_successful=False, err_log=traceback.format_exc())
     
