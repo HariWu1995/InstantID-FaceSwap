@@ -79,9 +79,9 @@ async def custom_swagger_ui_html(request: Request):
     query_params = str(request.query_params)
     openapi_url = app.root_path + app.openapi_url + "?" + query_params
     return get_swagger_ui_html(
-        openapi_url = openapi_url,
-                title = "Hari Yu - Demo",
+            openapi_url = openapi_url,
     swagger_favicon_url = "https://github.com/HariWu1995/InstantID-FaceSwap/blob/main/assets/favicon.ico",
+                  title = "Hari Yu - Demo",
     )
 
 
