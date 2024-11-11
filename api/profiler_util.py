@@ -4,10 +4,6 @@ import psutil
 import torch
 
 
-ACCEPTABLE_AVAILABLE_MEMORY = 1024
-COMMAND = "nvidia-smi --query-gpu=memory.used --format=csv"
-
-
 def get_cpu_info():
     return {
         'CPU_usage': psutil.cpu_percent(),
@@ -20,8 +16,9 @@ def get_gpu_memory():
     output_to_list = lambda x: x.decode('ascii').split('\n')[:-1]
     
     try:
-        memory_use_info = output_to_list(subprocess.check_output(COMMAND.split(), 
-                                         stderr=subprocess.STDOUT))[1:]
+        cmd = "nvidia-smi --query-gpu=memory.used --format=csv"
+        memory_use_info = output_to_list(subprocess.check_output(cmd.split(), 
+                                stderr = subprocess.STDOUT))[1:]
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"command '{e.cmd}' return with error (code {e.returncode}): {e.output}")
 
